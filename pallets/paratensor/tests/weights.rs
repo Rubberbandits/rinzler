@@ -1,0 +1,300 @@
+mod mock;
+use mock::*;
+use pallet_paratensor::{Error};
+use frame_system::{Config};
+use frame_support::{weights, weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays}};
+use frame_support::{assert_ok};
+use sp_runtime::DispatchError;
+
+/***************************
+  pub fn set_weights() tests
+*****************************/
+
+// Test the call passes through the paratensor module.
+#[test]
+fn test_set_weights_dispatch_info_ok() {
+	new_test_ext().execute_with(|| {
+		let dests = vec![1, 1];
+		let weights = vec![1, 1];
+        let netuid: u16 = 1;
+		let version_key: u64 = 0;
+		let call = RuntimeCall::ParatensorModule(ParatensorCall::set_weights{netuid, dests, weights, version_key});
+		assert_eq!(call.get_dispatch_info(), DispatchInfo {
+			weight: frame_support::weights::Weight::from_ref_time(0),
+			class: DispatchClass::Normal,
+			pays_fee: Pays::No
+		});
+	});
+}
+
+/// Test ensures that uid has validator permit to set non-self weights.
+#[test]
+fn test_weights_err_no_validator_permit() {
+	new_test_ext().execute_with(|| {
+        let hotkey_account_id: u64 = 55;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+		ParatensorModule::set_max_allowed_uids(netuid, 3);
+    	register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+		register_ok_neuron( netuid, 1, 1, 65555 );
+		register_ok_neuron( netuid, 2, 2, 75555 );
+		
+		let weights_keys: Vec<u16> = vec![1, 2];
+		let weight_values: Vec<u16> = vec![1, 2];
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey_account_id), netuid, weights_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::NoValidatorPermit.into()));
+
+		let weights_keys: Vec<u16> = vec![1, 2];
+		let weight_values: Vec<u16> = vec![1, 2];
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey_account_id), netuid, weights_keys, weight_values, 0);
+		assert_ok!(result);
+	});
+}
+
+/// Test ensures that a uid can only set weights if it has the valid weights set version key.
+#[test]
+fn test_weights_version_key() {
+	new_test_ext().execute_with(|| {
+        let hotkey: u64= 55;
+		let coldkey: u64= 66;
+		let netuid0: u16 = 0;
+		let netuid1: u16 = 2;
+		add_network(netuid0, 0, 0);
+		add_network(netuid1, 0, 0);
+		register_ok_neuron( netuid0, hotkey, coldkey, 2143124 );
+		register_ok_neuron( netuid1, hotkey, coldkey, 3124124 );
+
+		let weights_keys: Vec<u16> = vec![0];
+		let weight_values: Vec<u16> = vec![1];
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), 0) );
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid1, weights_keys.clone(), weight_values.clone(), 0) );
+
+		// Set version keys.
+		let key0: u64 = 12312;
+		let key1: u64 = 20313;
+		ParatensorModule::set_weights_version_key( netuid0, key0 );
+		ParatensorModule::set_weights_version_key( netuid1, key1 );
+
+		// Setting works with version key.
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), key0) );
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid1, weights_keys.clone(), weight_values.clone(), key1) );
+
+		// Setting fails with incorrect keys.
+		assert_eq!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), key1), Err(Error::<Test>::IncorrectNetworkVersionKey.into()) );
+		assert_eq!( ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid1, weights_keys.clone(), weight_values.clone(), key0), Err(Error::<Test>::IncorrectNetworkVersionKey.into()) );
+	});
+}
+
+/// Test ensures that uid has validator permit to set non-self weights.
+#[test]
+fn test_weights_err_setting_weights_too_fast() {
+	new_test_ext().execute_with(|| {
+        let hotkey_account_id: u64 = 55;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+		ParatensorModule::set_max_allowed_uids(netuid, 3);
+    	register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+		register_ok_neuron( netuid, 1, 1, 65555 );
+		register_ok_neuron( netuid, 2, 2, 75555 );
+
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		assert_ok!( ParatensorModule::sudo_set_weights_set_rate_limit(<<Test as Config>::RuntimeOrigin>::root(), netuid, 10) );
+		assert_eq!( ParatensorModule::get_weights_set_rate_limit(netuid), 10);
+		
+		let weights_keys: Vec<u16> = vec![1, 2];
+		let weight_values: Vec<u16> = vec![1, 2];
+
+		// Note that LastUpdate has default 0 for new uids, but if they have actually set weights on block 0
+		// then they are allowed to set weights again once more without a wait restriction, to accommodate the default.
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey_account_id), netuid, weights_keys.clone(), weight_values.clone(), 0);
+		assert_ok!(result);
+		run_to_block(1);
+
+		for i in 1..100 {
+			let result = ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey_account_id), netuid, weights_keys.clone(), weight_values.clone(), 0);
+			if i % 10 == 1 {
+				assert_ok!(result);
+			}
+			else {
+				assert_eq!(result, Err(Error::<Test>::SettingWeightsTooFast.into()));
+			}
+			run_to_block(i + 1);
+		}
+	});
+}
+
+/// Test ensures that uids -- weights must have the same size.
+#[test]
+fn test_weights_err_weights_vec_not_equal_size() {
+	new_test_ext().execute_with(|| {
+        let hotkey_account_id: u64 = 55;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+    	register_ok_neuron(1, hotkey_account_id, 66, 0);
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		let weights_keys: Vec<u16> = vec![1, 2, 3, 4, 5, 6];
+		let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5]; // Uneven sizes
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(hotkey_account_id), 1, weights_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::WeightVecNotEqualSize.into()));
+	});
+}
+
+/// Test ensures that uids can have not duplicates
+#[test]
+fn test_weights_err_has_duplicate_ids() {
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id: u64 = 666;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+		register_ok_neuron( netuid, hotkey_account_id, 77, 0);
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		let weights_keys: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 6, 6]; // Contains duplicates
+		let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(666), 1, weights_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::DuplicateUids.into()));
+	});
+}
+
+/// Test ensures weights cannot exceed max weight limit.
+#[test]
+fn test_weights_err_max_weight_limit() { //TO DO SAM: uncomment when we implement run_to_block fn
+	new_test_ext().execute_with(|| { 
+		// Add network.
+		let netuid: u16 = 1;
+		let tempo: u16 = 100;
+		add_network(netuid, tempo, 0);
+
+		// Set params.
+		ParatensorModule::set_max_allowed_uids(netuid, 5);
+		ParatensorModule::set_max_weight_limit( netuid, u16::MAX/5 );
+
+		// Add 5 accounts.
+		println!( "+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 0, 0 );
+		register_ok_neuron( netuid, 0, 0, 55555 );
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &0 ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		assert_eq!( ParatensorModule::get_subnetwork_n(netuid), 1 );
+		assert!( ParatensorModule::is_hotkey_registered_on_network( netuid, &0 ) );
+		step_block(1);
+
+		println!( "+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 1, 1 );
+		register_ok_neuron( netuid, 1, 1, 65555 );
+		assert!( ParatensorModule::is_hotkey_registered_on_network( netuid, &1 ) );
+		assert_eq!(ParatensorModule::get_subnetwork_n(netuid), 2);
+		step_block(1);
+
+		println!( "+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 2, 2 );
+		register_ok_neuron( netuid, 2, 2, 75555 );
+		assert!( ParatensorModule::is_hotkey_registered_on_network( netuid, &2 ) );
+		assert_eq!( ParatensorModule::get_subnetwork_n(netuid), 3 );
+		step_block(1);
+
+		println!( "+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 3, 3 );
+		register_ok_neuron( netuid, 3, 3, 95555 );
+		assert!( ParatensorModule::is_hotkey_registered_on_network( netuid, &3 ) );
+		assert_eq!(ParatensorModule::get_subnetwork_n(netuid), 4);
+		step_block(1);
+
+		println!( "+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 4, 4 );
+		register_ok_neuron( netuid, 4, 4, 35555 );
+		assert!( ParatensorModule::is_hotkey_registered_on_network( netuid, &4 ) );
+		assert_eq!(ParatensorModule::get_subnetwork_n(netuid), 5);
+		step_block(1);
+
+		// Non self-weight fails.
+		let uids: Vec<u16> = vec![ 1, 2, 3, 4 ]; 
+		let values: Vec<u16> = vec![ u16::MAX/4, u16::MAX/4, u16::MAX/54, u16::MAX/4];
+		let result = ParatensorModule::set_weights( RuntimeOrigin::signed(0), 1, uids, values, 0 );
+		assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
+
+		// Self-weight is a success.
+		let uids: Vec<u16> = vec![ 0 ];  // Self.
+		let values: Vec<u16> = vec![ u16::MAX ]; // normalizes to u32::MAX
+		assert_ok!(ParatensorModule::set_weights( RuntimeOrigin::signed(0), 1, uids, values, 0));
+	});
+}
+
+/// Tests the call requires a valid origin.
+#[test]
+fn test_no_signature() {
+	new_test_ext().execute_with(|| {
+		let uids: Vec<u16> = vec![];
+		let values: Vec<u16> = vec![];
+		let result = ParatensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
+		assert_eq!(result, Err(DispatchError::BadOrigin.into()));
+	});
+}
+
+/// Tests that weights cannot be set to non registered uids.
+#[test]
+fn test_set_weights_err_not_active() {
+	new_test_ext().execute_with(|| {
+		let weights_keys: Vec<u16> = vec![1, 2, 3, 4, 5, 6];
+		let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5, 6];
+		add_network(1, 13, 0);
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(1), 1, weights_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::NotRegistered.into()));
+	});
+}
+
+// Tests that set weights fails if you pass invalid uids.
+#[test]
+fn test_set_weights_err_invalid_uid() {
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id: u64 = 55;
+        let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+		register_ok_neuron( 1, hotkey_account_id, 66, 0);
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+		let weight_keys : Vec<u16> = vec![9999]; // Does not exist
+		let weight_values : Vec<u16> = vec![88]; // random value
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(55), 1, weight_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::InvalidUid.into()));
+	});
+}
+
+// Tests that set weights fails if you dont pass enough values.
+#[test]
+fn test_set_weight_not_enough_values() {
+	new_test_ext().execute_with(|| {
+        
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		add_network(netuid, tempo, 0);
+		
+		register_ok_neuron(1, 1, 2, 100000);
+		let neuron_uid: u16 = ParatensorModule::get_uid_for_net_and_hotkey( netuid, &1 ).expect("Not registered.");
+		ParatensorModule::set_validator_permit(netuid, neuron_uid, true);
+
+		register_ok_neuron(1, 3, 4, 300000);
+		ParatensorModule::set_min_allowed_weights(1, 2);
+
+		// Should fail because we are only setting a single value and its not the self weight.
+		let weight_keys : Vec<u16> = vec![1]; // not weight. 
+		let weight_values : Vec<u16> = vec![88]; // random value.
+		let result = ParatensorModule::set_weights(RuntimeOrigin::signed(1), 1, weight_keys, weight_values, 0);
+		assert_eq!(result, Err(Error::<Test>::NotSettingEnoughWeights.into()));
+
+		// Shouldnt fail because we setting a single value but it is the self weight.
+		let weight_keys : Vec<u16> = vec![0]; // self weight.
+		let weight_values : Vec<u16> = vec![88]; // random value.
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(1), 1 , weight_keys, weight_values, 0)) ;
+
+		// Should pass because we are setting enough values.
+		let weight_keys : Vec<u16> = vec![0, 1]; // self weight. 
+		let weight_values : Vec<u16> = vec![10, 10]; // random value.
+		ParatensorModule::set_min_allowed_weights(1, 1);
+		assert_ok!( ParatensorModule::set_weights(RuntimeOrigin::signed(1), 1,  weight_keys, weight_values, 0)) ;
+	});
+}
