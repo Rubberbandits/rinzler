@@ -5,7 +5,7 @@ use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::{info, warn};
-use parachain_template_runtime::Block;
+use paratensor_runtime::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
@@ -23,11 +23,11 @@ use crate::{
 	service::{new_partial, ParachainNativeExecutor},
 };
 
-fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 	Ok(match id {
-		"dev" => Box::new(chain_spec::development_config()),
-		"template-rococo" => Box::new(chain_spec::local_testnet_config()),
-		"" | "local" => Box::new(chain_spec::local_testnet_config()),
+		"dev" => Box::new(chain_spec::rococo_testnet_config()),
+		"kusama" => Box::new(chain_spec::kusama_testnet_config()),
+		"main" | "finney" => Box::new(chain_spec::polkadot_config()), 
 		path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 	})
 }
@@ -68,7 +68,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&parachain_template_runtime::VERSION
+		&paratensor_runtime::VERSION
 	}
 }
 
@@ -416,7 +416,8 @@ impl CliConfiguration<Self> for RelayChainCli {
 	}
 
 	fn default_heap_pages(&self) -> Result<Option<u64>> {
-		self.base.base.default_heap_pages()
+		//self.base.base.default_heap_pages()
+		Ok(Some(32768))
 	}
 
 	fn force_authoring(&self) -> Result<bool> {

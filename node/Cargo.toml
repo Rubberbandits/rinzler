@@ -17,7 +17,7 @@ serde = { version = "1.0.145", features = ["derive"] }
 jsonrpsee = { version = "0.15.1", features = ["server"] }
 
 # Local
-parachain-template-runtime = { path = "../runtime" }
+paratensor-runtime = { path = "../runtime" }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32" }
@@ -78,7 +78,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [features]
 default = []
 runtime-benchmarks = [
-	"parachain-template-runtime/runtime-benchmarks",
+	"paratensor-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
-try-runtime = ["parachain-template-runtime/try-runtime"]
+try-runtime = ["paratensor-runtime/try-runtime"]
