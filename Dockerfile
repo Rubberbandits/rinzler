@@ -20,7 +20,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
         ai.opentensor.image.vendor="Opentensor Foundation" \
-        ai.opentensor.image.title="opentensor/paratensor" \
+        ai.opentensor.image.title="opentensor/rococo_paratensor" \
         ai.opentensor.image.description="Opentensor Paratensor Blockchain" \
         ai.opentensor.image.revision="${VCS_REF}" \
         ai.opentensor.image.created="${BUILD_DATE}" \
@@ -50,8 +50,9 @@ RUN mkdir -p paratensor/scripts
 RUN mkdir -p paratensor/specs
 
 COPY scripts/init.sh paratensor/scripts/init.sh
-COPY specs/nakamotoChainSpecRaw.json paratensor/specs/nakamotoSpecRaw.json
+COPY specs/* paratensor/specs/
 
+RUN chmod 744 paratensor/scripts/init.sh
 RUN paratensor/scripts/init.sh
 
 COPY ./target/release/paratensor /usr/local/bin
@@ -60,4 +61,4 @@ RUN /usr/local/bin/paratensor --version
 
 RUN apt remove -y curl
 
-EXPOSE 30333 9933 9944
+EXPOSE 30333 30334 9944 9945 9946

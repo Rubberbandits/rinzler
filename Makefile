@@ -8,7 +8,7 @@ check-docker-image-tag:
 	echo "opentensorfdn/rinzler:$(version)"
 
 build:
-	cargo build
+	cargo build --release
 
 build-docker:
 	docker build -f Dockerfile -t opentensorfdn/rinzler:$(version) .
