@@ -1,6 +1,6 @@
 [package]
 name = "paratensor-custom-rpc"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ['Cameron Fairchild <https://github.com/camfairchild>']
 repository = 'https://github.com/opentensor/paratensor'
@@ -23,7 +23,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 
 # local packages
 
-paratensor-custom-rpc-runtime-api = { version = "0.0.1", path = "../runtime-api", default-features = false }
+paratensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
 pallet-paratensor = { version = "0.0.1-dev", path = "../../paratensor", default-features = false }
 
 [features]

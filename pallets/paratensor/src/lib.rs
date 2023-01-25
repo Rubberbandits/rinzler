@@ -29,6 +29,11 @@ mod weights;
 mod serving;
 mod registration;
 
+// RPC impl imports
+pub mod delegate_info;
+pub mod neuron_info;
+pub mod subnet_info;
+
 #[frame_support::pallet]
 pub mod pallet {
 	/// ========================
