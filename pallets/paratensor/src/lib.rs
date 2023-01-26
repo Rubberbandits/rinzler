@@ -764,7 +764,7 @@ pub mod pallet {
 		/// 	* 'netuid' (u16):
 		/// 		- The u16 network identifier.
 		///
-		/// 	* 'version' (u64):
+		/// 	* 'version' (u32):
 		/// 		- The bittensor version identifier.
 		///
 		/// 	* 'ip' (u64):
