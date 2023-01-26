@@ -51,13 +51,13 @@ where
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
-	use paratensor_custom_rpc::{ParatensorCustomApi, ParatensorCustom};
+	use paratensor_custom_rpc::{ParatensorCustomApiServer, ParatensorCustom};
 
 	let mut module = RpcExtension::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
 	// Custom RPC methods for Paratensor
-	io.extend_with(ParatensorCustomApi::to_delegate(ParatensorCustom::new(client.clone())));
+	module.merge(ParatensorCustom::new(client.clone()).into_rpc())?;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;

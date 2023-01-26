@@ -24,6 +24,7 @@ smallvec = "1.10.0"
 # Local
 pallet-paratensor = { version = "0.0.1-dev", path = "../pallets/paratensor", default-features = false }
 
+paratensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/paratensor/runtime-api", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.32" }
