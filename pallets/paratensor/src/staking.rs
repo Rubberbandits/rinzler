@@ -5,13 +5,13 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller's coldkey.
     ///
     /// 	* 'hotkey' (T::AccountId):
     /// 		- The hotkey we are delegating (must be owned by the coldkey.)
     ///
-    /// 	* 'take' (u64):
+    /// 	* 'take' (u16):
     /// 		- The stake proportion that this hotkey takes from delegations.
     ///
     /// # Event:
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller's coldkey.
     ///
     /// 	* 'hotkey' (T::AccountId):
@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller's coldkey.
     ///
     /// 	* 'hotkey' (T::AccountId):
@@ -321,6 +321,10 @@ impl<T: Config> Pallet<T> {
         T::Currency::deposit_creating(&coldkey, amount); // Infallibe
     }
 
+    pub fn set_balance_on_coldkey_account(coldkey: &T::AccountId, amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance) {
+        T::Currency::make_free_balance_be(&coldkey, amount); 
+    }
+
     pub fn can_remove_balance_from_coldkey_account(coldkey: &T::AccountId, amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance) -> bool {
         let current_balance = Self::get_coldkey_balance(coldkey);
         if amount > current_balance {
@@ -336,6 +340,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_coldkey_balance(coldkey: &T::AccountId) -> <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance {
         return T::Currency::free_balance(&coldkey);
     }
+
 
     pub fn remove_balance_from_coldkey_account(coldkey: &T::AccountId, amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance) -> bool {
         return match T::Currency::withdraw(&coldkey, amount, WithdrawReasons::except(WithdrawReasons::TIP), ExistenceRequirement::KeepAlive) {

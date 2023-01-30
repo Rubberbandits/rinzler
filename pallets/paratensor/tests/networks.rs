@@ -1,8 +1,8 @@
 mod mock;
 use mock::*;
 use pallet_paratensor::{Error};
-use frame_support::{weights, weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays}};
-use frame_system::{Config};
+use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
+use frame_system::Config;
 use frame_support::{sp_std::vec};
 use frame_support::{assert_ok};
 

@@ -14,10 +14,48 @@ const LOG_TARGET: &'static str = "runtime::paratensor::registration";
 
 impl<T: Config> Pallet<T> {
 
+    pub fn do_sudo_registration( 
+        origin: T::RuntimeOrigin,
+        netuid: u16, 
+        hotkey: T::AccountId, 
+        coldkey: T::AccountId,
+        stake: u64,
+        balance: u64,
+    ) -> DispatchResult {
+        ensure_root( origin )?;        
+        ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
+        ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
+
+        Self::create_account_if_non_existent( &coldkey, &hotkey);         
+        ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
+        Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake );
+
+        let balance_to_be_added_as_balance = Self::u64_to_balance( balance );
+        ensure!( balance_to_be_added_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
+        Self::add_balance_to_coldkey_account( &coldkey, balance_to_be_added_as_balance.unwrap() );
+
+        let subnetwork_uid: u16;
+        let current_block_number: u64 = Self::get_current_block_as_u64();
+        let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
+        if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
+            subnetwork_uid = current_subnetwork_n;
+            Self::increment_subnetwork_n( netuid );
+
+        } else {
+            subnetwork_uid = Self::get_neuron_to_prune( netuid );
+            Self::prune_uid_from_subnetwork( netuid, subnetwork_uid );
+        }
+    
+        Self::fill_new_neuron_account_in_subnetwork( netuid, subnetwork_uid, &hotkey, current_block_number );
+        log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
+        Self::deposit_event( Event::NeuronRegistered( netuid, subnetwork_uid, hotkey ) );
+        Ok(())
+    }
+
     /// ---- The implementation for the extrinsic do_registration.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the calling hotkey.
     ///
     /// 	* 'netuid' (u16):
@@ -190,7 +228,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns true if the items contain duplicates hotkeys.
     ///
-    fn has_duplicate_hotkeys(items: &Vec<T::AccountId>) -> bool {
+    fn has_duplicate_keys(items: &Vec<T::AccountId>) -> bool {
         let mut parsed: Vec<T::AccountId> = Vec::new();
         for item in items {
             if parsed.contains(&item) { return true; }
@@ -223,12 +261,14 @@ impl<T: Config> Pallet<T> {
         Keys::<T>::remove( netuid, uid_to_prune ); 
         Rank::<T>::remove( netuid, uid_to_prune );
         Trust::<T>::remove( netuid, uid_to_prune );
+        ValidatorTrust::<T>::remove( netuid, uid_to_prune );
         Bonds::<T>::remove( netuid, uid_to_prune );
         Active::<T>::remove( netuid, uid_to_prune );
         Weights::<T>::remove( netuid, uid_to_prune );
         Emission::<T>::remove( netuid, uid_to_prune );
         Dividends::<T>::remove( netuid, uid_to_prune );
         Consensus::<T>::remove( netuid, uid_to_prune );
+        WeightConsensus::<T>::remove( netuid, uid_to_prune );
         Incentive::<T>::remove( netuid, uid_to_prune );
         ValidatorPermit::<T>::remove( netuid, uid_to_prune );
         PruningScores::<T>::remove( netuid, uid_to_prune );
@@ -366,10 +406,11 @@ impl<T: Config> Pallet<T> {
         return (nonce, vec_work)
     }
 
-     /// ---- The implementation for the extrinsic bulk_register.
+    
+    /// ---- The implementation for the extrinsic bulk_register.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- Must be sudo.
     ///
     /// 	* 'netuid' (u16):
@@ -397,11 +438,82 @@ impl<T: Config> Pallet<T> {
     ///         - The hot-cold pair cannot be associated because it already exists. 
     ///
     ///
-    pub fn do_bulk_register(
+    pub fn do_import_registration(
         origin: T::RuntimeOrigin, 
         netuid: u16, 
+        coldkey: T::AccountId,
         hotkeys: Vec<T::AccountId>, 
-        coldkeys: Vec<T::AccountId> 
+        stakes: Vec<u64>,
+        coldkey_balance: u64
+    ) -> DispatchResult {
+
+       // --- 1. Ensure the caller is sudo.
+       ensure_root( origin )?;
+
+       // --- 2. Ensure the passed network is valid and exists.
+       ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
+
+       // --- 3. Ensure the coldkeys match the stakes in length.
+       ensure!( hotkeys.len() == stakes.len(), Error::<T>::WeightVecNotEqualSize ); 
+
+       // --- 4. Ensure the passed hotkeys do not contain duplicates.
+       ensure!( !Self::has_duplicate_keys( &hotkeys ), Error::<T>::DuplicateUids );
+
+       // --- 5. Check the network size to hotkey length.
+       ensure!( hotkeys.len() as u16 <= Self::get_max_allowed_uids( netuid ), Error::<T>::MaxAllowedUidsExceeded);
+
+       // --- 6. Create all accounts for the passed hot - cold pair.
+       for (_uid, hotkey) in hotkeys.iter().enumerate() {
+           // --- 6.1 If the network account does not exist we will create it here.
+           Self::create_account_if_non_existent( &coldkey, &hotkey );         
+
+           // --- 6.2 Ensure that the pairing is correct.
+           ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
+       }
+
+       // --- 7. Fill all the slots and erase the previous owners.
+       let current_block_number: u64 = Self::get_current_block_as_u64();
+
+       // --- 8. Add balance to coldkey
+       Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance( coldkey_balance ).unwrap());
+
+       for (uid_i, new_hotkey) in hotkeys.iter().enumerate() {
+           
+           Active::<T>::insert( netuid, uid_i as u16, true ); // Set to active by default.
+           Keys::<T>::insert( netuid, uid_i as u16, new_hotkey.clone() ); // Make hotkey - uid association.
+           Uids::<T>::insert( netuid, new_hotkey.clone(), uid_i as u16 ); // Make uid - hotkey association.
+           IsNetworkMember::<T>::insert( new_hotkey.clone(), netuid, true ); // Fill network owner.
+           PruningScores::<T>::insert( netuid, uid_i as u16, u16::MAX ); // Set to infinite pruning score.
+           BlockAtRegistration::<T>::insert( netuid, uid_i as u16, current_block_number ); // Fill block at registration.
+
+           // Add stakes to hotkeys
+           let stake_as_balance = Self::u64_to_balance( stakes[uid_i] );
+           ensure!( stake_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
+
+           // --- 4. Ensure that the hotkey account exists this is only possible through registration.
+           ensure!( Self::hotkey_account_exists( &new_hotkey ), Error::<T>::NotRegistered );    
+
+           // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+           ensure!( Self::hotkey_is_delegate( &new_hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &new_hotkey ), Error::<T>::NonAssociatedColdKey );
+
+           // --- 7. If we reach here, add the balance to the hotkey.
+           Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &new_hotkey, stakes[uid_i] );
+
+           // --- 8. Increase subnetwork n to amount of hotkeys.
+           SubnetworkN::<T>::mutate(netuid, |val| *val += 1);
+       }
+       // --- 9. Deposit successful event.
+       Self::deposit_event( Event::BulkNeuronsRegistered( netuid, hotkeys.len() as u16 ) );
+
+       // --- 10. Ok and done.
+       Ok(())
+    }
+
+    pub fn do_bulk_set_balances(
+        origin: T::RuntimeOrigin, 
+        netuid: u16, 
+        coldkeys: Vec<T::AccountId>, 
+        balances: Vec<u64>
     ) -> DispatchResult {
 
         // --- 1. Ensure the caller is sudo.
@@ -410,58 +522,28 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid and exists.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-        // --- 3. Ensure the coldkeys match the hotkeys in length.
-        ensure!( hotkeys.len() == coldkeys.len(), Error::<T>::WeightVecNotEqualSize ); 
-
         // --- 4. Ensure the passed hotkeys do not contain duplicates.
-        ensure!( !Self::has_duplicate_hotkeys( &hotkeys ), Error::<T>::DuplicateUids );
+        ensure!( !Self::has_duplicate_keys( &coldkeys ), Error::<T>::DuplicateUids );
 
-        // --- 5. Check the network size to hotkey length.
-        ensure!( hotkeys.len() as u16 == Self::get_max_allowed_uids( netuid ), Error::<T>::NotSettingEnoughWeights);
 
-        // --- 6. Create all accounts for the passed hot - cold pair.
-        for (h, c) in hotkeys.iter().zip( coldkeys.clone() ) {
-            // --- 6.1 If the network account does not exist we will create it here.
-            Self::create_account_if_non_existent( &c, &h );         
+        for (coldkey, balance) in coldkeys.iter().zip(balances.clone()) {
+            // Add stakes to hotkeys
+            let coldkey_balance = Self::u64_to_balance( balance );
+            ensure!( coldkey_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
 
-            // --- 6.2 Ensure that the pairing is correct.
-            ensure!( Self::coldkey_owns_hotkey( &c, &h ), Error::<T>::NonAssociatedColdKey );
+            Self::set_balance_on_coldkey_account(&coldkey, coldkey_balance.unwrap());
+
+            ensure!( Self::get_coldkey_balance(coldkey) == coldkey_balance.unwrap(), Error::<T>::BalanceSetError);
+
+            log::info!("BalanceAdded( coldkey:{:?}, balance:{:?} )", coldkey, balance );
+            // --- 8. Increase subnetwork n to amount of hotkeys.
+            SubnetworkN::<T>::mutate(netuid, |val| *val += 1);
+        
         }
-
-        // --- 7. Fill all the slots and erase the previous owners.
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        for (uid_i, new_hotkey) in hotkeys.iter().enumerate() {
-            let pruned_hotkey: T::AccountId = Keys::<T>::get( netuid, uid_i as u16 );
-            Uids::<T>::remove( netuid, pruned_hotkey.clone() );
-            IsNetworkMember::<T>::remove( pruned_hotkey.clone(), netuid);
-            Keys::<T>::remove( netuid, uid_i as u16 ); 
-            Rank::<T>::remove( netuid, uid_i as u16 );
-            Trust::<T>::remove( netuid, uid_i as u16 );
-            Bonds::<T>::remove( netuid, uid_i as u16 );
-            Active::<T>::remove( netuid, uid_i as u16 );
-            Weights::<T>::remove( netuid, uid_i as u16 );
-            Emission::<T>::remove( netuid, uid_i as u16 );
-            Dividends::<T>::remove( netuid, uid_i as u16 );
-            Consensus::<T>::remove( netuid, uid_i as u16 );
-            Incentive::<T>::remove( netuid, uid_i as u16 );
-            PruningScores::<T>::remove( netuid, uid_i as u16 );
-            Active::<T>::insert( netuid, uid_i as u16, true ); // Set to active by default.
-            Keys::<T>::insert( netuid, uid_i as u16, new_hotkey.clone() ); // Make hotkey - uid association.
-            Uids::<T>::insert( netuid, new_hotkey.clone(), uid_i as u16 ); // Make uid - hotkey association.
-            IsNetworkMember::<T>::insert( new_hotkey.clone(), netuid, true ); // Fill network owner.
-            PruningScores::<T>::insert( netuid, uid_i as u16, u16::MAX ); // Set to infinite pruning score.
-            BlockAtRegistration::<T>::insert( netuid, uid_i as u16, current_block_number ); // Fill block at registration.
-        }
-
-        // --- 8. Increase subnetwork n to amount of hotkeys.
-        // TODO this is wrong.
-        SubnetworkN::<T>::insert( netuid, hotkeys.len() as u16 );
-
         // --- 9. Deposit successful event.
-        Self::deposit_event( Event::BulkNeuronsRegistered( netuid, hotkeys.len() as u16 ) );
+        Self::deposit_event( Event::BulkBalancesSet( netuid, coldkeys.len() as u16 ) );
 
         // --- 10. Ok and done.
         Ok(())
     }
-
 }

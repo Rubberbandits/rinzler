@@ -102,7 +102,8 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 1;
 	pub const TransactionByteFee: Balance = 100;
 	pub const SDebug:u64 = 1;
-	pub const InitialRho: u16 = 10;
+	pub const InitialWeightCuts: u16 = 3;
+	pub const InitialRho: u16 = 30;
 	pub const InitialKappa: u16 = 32_767;
 	pub const InitialTempo: u16 = 0;
 	pub const SelfOwnership: u64 = 2;
@@ -117,9 +118,11 @@ parameter_types! {
 
 	pub const InitialValidatorBatchSize: u16 = 10;
 	pub const InitialValidatorSequenceLen: u16 = 10;
+	pub const InitialValidatorPruneLen: u64 = 0;
 	pub const InitialValidatorEpochLen: u16 = 10;
 	pub const InitialValidatorEpochsPerReset: u16 = 10;
 	pub const InitialValidatorExcludeQuantile: u16 = 10;
+	pub const InitialValidatorLogitsDivergence: u64 = 0;
 	pub const InitialScalingLawPower: u16 = 50;
 	pub const InitialSynergyScalingLawPower: u16 = 50;
 	pub const InitialMaxAllowedValidators: u16 = 100;
@@ -148,14 +151,17 @@ impl pallet_paratensor::Config for Test {
 	type InitialDifficulty = InitialDifficulty;
 	type InitialAdjustmentInterval = InitialAdjustmentInterval;
 	type InitialTargetRegistrationsPerInterval = InitialTargetRegistrationsPerInterval;
+	type InitialWeightCuts = InitialWeightCuts;
 	type InitialRho = InitialRho;
 	type InitialKappa = InitialKappa;
 	type InitialMaxAllowedUids = InitialMaxAllowedUids;
 	type InitialValidatorBatchSize = InitialValidatorBatchSize;
 	type InitialValidatorSequenceLen = InitialValidatorSequenceLen;
+	type InitialValidatorPruneLen = InitialValidatorPruneLen;
 	type InitialValidatorEpochLen = InitialValidatorEpochLen;
 	type InitialValidatorEpochsPerReset = InitialValidatorEpochsPerReset;
 	type InitialValidatorExcludeQuantile = InitialValidatorExcludeQuantile;
+	type InitialValidatorLogitsDivergence = InitialValidatorLogitsDivergence;
 	type InitialScalingLawPower = InitialScalingLawPower;
 	type InitialSynergyScalingLawPower = InitialSynergyScalingLawPower;
 	type InitialImmunityPeriod = InitialImmunityPeriod;

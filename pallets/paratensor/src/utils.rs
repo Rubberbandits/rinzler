@@ -129,6 +129,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_validator_prune_len( netuid: u16 ) -> u64 { ValidatorPruneLen::<T>::get( netuid ) }
+    pub fn set_validator_prune_len( netuid: u16, validator_prune_len: u64 ) { ValidatorPruneLen::<T>::insert( netuid, validator_prune_len ); }
+    pub fn do_sudo_set_validator_prune_len( origin:T::RuntimeOrigin, netuid: u16, validator_prune_len: u64 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
+        Self::set_validator_prune_len(netuid, validator_prune_len);
+        log::info!("ValidatorPruneLenSet( netuid: {:?} validator_prune_len: {:?} ) ", netuid, validator_prune_len);
+		Self::deposit_event( Event::ValidatorPruneLenSet( netuid, validator_prune_len ));
+		Ok(())
+    }
+
+    pub fn get_validator_logits_divergence( netuid: u16 ) -> u64 { ValidatorLogitsDivergence::<T>::get( netuid ) }
+    pub fn set_validator_logits_divergence( netuid: u16, validator_logits_divergence: u64 ) { ValidatorLogitsDivergence::<T>::insert( netuid, validator_logits_divergence ); }
+    pub fn do_sudo_set_validator_logits_divergence( origin:T::RuntimeOrigin, netuid: u16, validator_logits_divergence: u64 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
+        Self::set_validator_logits_divergence(netuid, validator_logits_divergence);
+        log::info!("ValidatorLogitsDivergenceSet( netuid: {:?} validator_logits_divergence: {:?} ) ", netuid, validator_logits_divergence);
+        Self::deposit_event( Event::ValidatorLogitsDivergenceSet( netuid, validator_logits_divergence ));
+        Ok(())
+    }
+
     pub fn get_scaling_law_power( netuid: u16 ) -> u16 { ScalingLawPower::<T>::get( netuid ) }
     pub fn set_scaling_law_power( netuid: u16, scaling_law_power: u16 ) { ScalingLawPower::<T>::insert( netuid, scaling_law_power ); }
     pub fn do_sudo_set_scaling_law_power( origin:T::RuntimeOrigin, netuid: u16, scaling_law_power: u16 ) -> DispatchResult {
@@ -224,6 +246,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_max_allowed_uids( origin:T::RuntimeOrigin, netuid: u16, max_allowed_uids: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
+        ensure!(Self::get_max_allowed_uids(netuid)< max_allowed_uids, Error::<T>::MaxAllowedUIdsNotAllowed);
         Self::set_max_allowed_uids( netuid, max_allowed_uids );
         log::info!("MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ", netuid, max_allowed_uids);
         Self::deposit_event( Event::MaxAllowedUidsSet( netuid, max_allowed_uids) );
@@ -249,6 +272,17 @@ impl<T: Config> Pallet<T> {
         Self::set_rho( netuid, rho );
         log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho );
         Self::deposit_event( Event::RhoSet( netuid, rho ) );
+        Ok(())
+    }
+            
+    pub fn get_weight_cuts( netuid: u16 ) -> u16  { WeightCuts::<T>::get( netuid ) }
+    pub fn set_weight_cuts( netuid: u16, weight_cuts: u16 ) { WeightCuts::<T>::insert( netuid, weight_cuts ); }
+    pub fn do_sudo_set_weight_cuts( origin:T::RuntimeOrigin, netuid: u16, weight_cuts: u16 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        Self::set_weight_cuts( netuid, weight_cuts );
+        log::info!("WeightCutsSet( netuid: {:?} weight_cuts: {:?} ) ", netuid, weight_cuts );
+        Self::deposit_event( Event::WeightCutsSet( netuid, weight_cuts ) );
         Ok(())
     }
             

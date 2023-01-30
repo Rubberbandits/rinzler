@@ -4,7 +4,7 @@ use frame_support::assert_ok;
 use frame_support::dispatch::{GetDispatchInfo, DispatchInfo};
 use pallet_paratensor::Error;
 use frame_support::weights::{DispatchClass, Pays};
-use frame_system::{Config};
+use frame_system::Config;
 
 mod test {
 use std::net::{Ipv4Addr, Ipv6Addr};

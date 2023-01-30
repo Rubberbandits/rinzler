@@ -20,14 +20,19 @@ mod benchmarking;
 /// =========================
 ///	==== Pallet Imports =====
 /// =========================
-mod block_step;
+mod registration;
+mod epoch;
+mod math;
 mod utils;
 mod staking;
-mod networks;
-mod epoch;
 mod weights;
-mod serving;
-mod registration;
+mod networks;
+mod serving; 
+mod block_step;
+// RPC impl imports
+pub mod delegate_info;
+pub mod neuron_info;
+pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -76,6 +81,8 @@ pub mod pallet {
 		type InitialBondsMovingAverage: Get<u64>;
 		#[pallet::constant] /// Initial target registrations per interval.
 		type InitialTargetRegistrationsPerInterval: Get<u16>;
+		#[pallet::constant] /// Initial number of weight cuts in epoch.
+		type InitialWeightCuts: Get<u16>;
 		#[pallet::constant] /// Rho constant
 		type InitialRho: Get<u16>;
 		#[pallet::constant] /// Kappa constant
@@ -92,6 +99,10 @@ pub mod pallet {
 		type InitialValidatorEpochsPerReset: Get<u16>;
 		#[pallet::constant] /// Initial validator exclude quantile.
 		type InitialValidatorExcludeQuantile: Get<u16>;
+		#[pallet::constant] /// Initial validator logits divergence penalty/threshold.
+		type InitialValidatorLogitsDivergence: Get<u64>;
+		#[pallet::constant] /// Initial validator context pruning length.
+		type InitialValidatorPruneLen: Get<u64>; 
 		#[pallet::constant] /// Initial scaling law power.
 		type InitialScalingLawPower: Get<u16>;
 		#[pallet::constant] /// Initial synergy scaling law power.
@@ -115,6 +126,20 @@ pub mod pallet {
 	}
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+	#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+	pub struct DeAccountId { // allows us to de/serialize the account id as a u8 vec
+		#[serde(with = "serde_bytes")]
+		id: Vec<u8>
+	}
+
+	impl From<Vec<u8>> for DeAccountId {
+		fn from(v: Vec<u8>) -> Self {
+			DeAccountId {
+				id: v.clone()
+			}
+		}
+	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -294,6 +319,8 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultBlockAtRegistration<T: Config>() -> u64 { 0 }
 	#[pallet::type_value]
+	pub fn DefaultWeightCuts<T: Config>() -> u16 { T::InitialWeightCuts::get() }
+	#[pallet::type_value]
 	pub fn DefaultRho<T: Config>() -> u16 { T::InitialRho::get() }
 	#[pallet::type_value]
 	pub fn DefaultKappa<T: Config>() -> u16 { T::InitialKappa::get() }
@@ -318,21 +345,27 @@ pub mod pallet {
 	#[pallet::type_value]
 	pub fn DefaultBondsMovingAverage<T: Config>() -> u64 { T::InitialBondsMovingAverage::get() }
 	#[pallet::type_value] 
+	pub fn DefaultValidatorPruneLen<T: Config>() -> u64 { T::InitialValidatorPruneLen::get() }
+	#[pallet::type_value] 
 	pub fn DefaultValidatorBatchSize<T: Config>() -> u16 { T::InitialValidatorBatchSize::get() }
 	#[pallet::type_value] 
 	pub fn DefaultValidatorSequenceLen<T: Config>() -> u16 { T::InitialValidatorSequenceLen::get() }
 	#[pallet::type_value] 
 	pub fn DefaultValidatorEpochsPerReset<T: Config>() -> u16 { T::InitialValidatorEpochsPerReset::get() }
 	#[pallet::type_value]
-	pub fn DefaultValidatorExcludeQuantile<T: Config>() -> u16 {T::InitialValidatorExcludeQuantile::get()}
+	pub fn DefaultValidatorExcludeQuantile<T: Config>() -> u16 { T::InitialValidatorExcludeQuantile::get() }
+	#[pallet::type_value] 
+	pub fn DefaultValidatorLogitsDivergence<T: Config>() -> u64 { T::InitialValidatorLogitsDivergence::get() }
 	#[pallet::type_value]
-	pub fn DefaultScalingLawPower<T: Config>() -> u16 {T::InitialScalingLawPower::get()}
+	pub fn DefaultScalingLawPower<T: Config>() -> u16 { T::InitialScalingLawPower::get() }
 	#[pallet::type_value]
-	pub fn DefaultSynergyScalingLawPower<T: Config>() -> u16 {T::InitialSynergyScalingLawPower::get()}
+	pub fn DefaultSynergyScalingLawPower<T: Config>() -> u16 { T::InitialSynergyScalingLawPower::get() }
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
 
 
+	#[pallet::storage] /// --- MAP ( netuid ) --> WeightCuts
+	pub type WeightCuts<T> =  StorageMap<_, Identity, u16, u16, ValueQuery, DefaultWeightCuts<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> Rho
 	pub type Rho<T> =  StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> Kappa
@@ -365,12 +398,16 @@ pub mod pallet {
 	pub type ValidatorBatchSize<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorBatchSize<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> weights_set_rate_limit
 	pub type WeightsSetRateLimit<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T> >;
+	#[pallet::storage] /// --- MAP ( netuid ) --> validator_prune_len
+	pub type ValidatorPruneLen<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultValidatorPruneLen<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> validator_sequence_length
 	pub type ValidatorSequenceLength<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorSequenceLen<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> validator_epochs_per_reset
 	pub type ValidatorEpochsPerReset<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorEpochsPerReset<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> validator_exclude_quantile
 	pub type ValidatorExcludeQuantile<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorExcludeQuantile<T> >;
+	#[pallet::storage] /// --- MAP ( netuid ) --> validator_logits_divergence
+	pub type ValidatorLogitsDivergence<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultValidatorLogitsDivergence<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> scaling_law_power
 	pub type ScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T> >;
 	#[pallet::storage] /// --- MAP ( netuid ) --> synergy_scaling_law_power
@@ -390,11 +427,15 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultTrust<T:Config>() -> u16 { 0 }
 	#[pallet::type_value] 
+	pub fn DefaultValidatorTrust<T:Config>() -> u16 { 0 }
+	#[pallet::type_value] 
 	pub fn DefaultEmission<T:Config>() -> u64 { 0 }
 	#[pallet::type_value] 
 	pub fn DefaultIncentive<T:Config>() -> u16 { 0 }
 	#[pallet::type_value] 
 	pub fn DefaultConsensus<T:Config>() -> u16 { 0 }
+	#[pallet::type_value] 
+	pub fn DefaultWeightConsensus<T:Config>() -> u16 { 0 }
 	#[pallet::type_value] 
 	pub fn DefaultLastUpdate<T:Config>() -> u64 { 0 }
 	#[pallet::type_value] 
@@ -418,6 +459,8 @@ pub mod pallet {
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> trust
 	pub(super) type Trust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultTrust<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> validator_trust
+	pub(super) type ValidatorTrust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultValidatorTrust<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> active
 	pub(super) type Active<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, bool, ValueQuery, DefaultActive<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
@@ -428,6 +471,8 @@ pub mod pallet {
 	pub(super) type Incentive<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultIncentive<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> consensus
 	pub(super) type Consensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultConsensus<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weight_consensus
+	pub(super) type WeightConsensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultWeightConsensus<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> dividends
 	pub(super) type Dividends<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultDividends<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> last_update
@@ -454,12 +499,14 @@ pub mod pallet {
 		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully set's their weights on a subnetwork.
 		NeuronRegistered( u16, u16, T::AccountId ), // --- Event created when a new neuron account has been registered to the chain.
 		BulkNeuronsRegistered( u16, u16 ), // --- Event created when multiple uids have been concurrently registered.
+		BulkBalancesSet(u16, u16),
 		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwor.
 		MaxWeightLimitSet( u16, u16 ), // --- Event created when the max weight limit has been set.
 		DifficultySet( u16, u64 ), // --- Event created when the difficulty has been set for a subnet.
 		AdjustmentIntervalSet( u16, u16 ), // --- Event created when the adjustment interval is set for a subnet.
 		RegistrationPerIntervalSet( u16, u16 ), // --- Event created when registeration per interval is set for a subnet.
 		ActivityCutoffSet( u16, u16 ), // --- Event created when an activity cutoff is set for a subnet.
+		WeightCutsSet( u16, u16 ), // --- Event created when WeightCuts value is set.
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
 		KappaSet( u16, u16 ), // --- Event created when kappa is set for a subnet.
 		MinAllowedWeightSet( u16, u16 ), // --- Event created when minimun allowed weight is set for a subnet.
@@ -467,6 +514,8 @@ pub mod pallet {
 		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length i set for a subnet.
 		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
 		ValidatorExcludeQuantileSet( u16, u16 ), // --- Event created when the validator exclude quantile has been set for a subnet.
+		ValidatorLogitsDivergenceSet( u16, u64 ), /// --- Event created when the validator logits divergence value has been set.
+		ValidatorPruneLenSet( u16, u64 ), /// --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
 		SynergyScalingLawPowerSet( u16, u16 ), // --- Event created when the synergy scaling law has been set for a subnet.
 		WeightsSetRateLimitSet( u16, u64 ), // --- Event create when weights set rate limit has been set for a subnet.
@@ -485,6 +534,7 @@ pub mod pallet {
 		MaxDifficultySet( u16, u64 ), // --- Event created when setting max difficutly on a network.
 		ServingRateLimitSet( u64 ), // --- Event created when setting the prometheus serving rate limit.
 	}
+	
 
 	/// ================
 	/// ==== Errors ====
@@ -527,6 +577,9 @@ pub mod pallet {
 		SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice withing net_tempo/2 blocks.
 		IncorrectNetworkVersionKey, // --- Thrown of a validator attempts to set weights from a validator with incorrect code base key.
 		ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
+		BalanceSetError, // --- Thrown when an error occurs setting a balance
+		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
+		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 	}
 
 	/// ================
@@ -598,6 +651,9 @@ pub mod pallet {
 		///
 		/// 	* 'DuplicateUids':
 		/// 		- Attempting to set weights with duplicate uids.
+		///		
+		///     * 'TooManyUids':
+		/// 		- Attempting to set weights above the max allowed uids.
 		///
 		/// 	* 'InvalidUid':
 		/// 		- Attempting to set weights with invalid uids.
@@ -649,7 +705,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::do_become_delegate(origin, hotkey, Self::get_default_take() )
 		}
-	
+
 		/// --- Adds stake to a hotkey. The call is made from the
 		/// coldkey account linked in the hotkey.
 		/// Only the associated coldkey is allowed to make staking and
@@ -692,7 +748,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::do_add_stake(origin, hotkey, amount_staked)
 		}
-
 
 		/// ---- Remove stake from the staking account. The call must be made
 		/// from the coldkey account attached to the neuron metadata. Only this key
@@ -809,6 +864,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::do_serve_prometheus( origin, version, ip, port, ip_type ) 
 		}
+
+
 		/// ---- Registers a new neuron to the subnetwork. 
 		///
 		/// # Args:
@@ -870,6 +927,17 @@ pub mod pallet {
 				coldkey: T::AccountId,
 		) -> DispatchResult { 
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+		}
+		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		pub fn sudo_register( 
+				origin:OriginFor<T>, 
+				netuid: u16,
+				hotkey: T::AccountId, 
+				coldkey: T::AccountId,
+				stake: u64,
+				balance: u64,
+			) -> DispatchResult { 
+			Self::do_sudo_registration(origin, netuid, hotkey, coldkey, stake, balance)
 		}
 
 		/// ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
@@ -960,7 +1028,7 @@ pub mod pallet {
 			)
 		}
 
-		/// ---- Sudo create and load network.
+		/// ---- Sudo bulk register accounts
 		/// Args:
 		/// 	* 'origin': (<T as frame_system::Config>Origin):
 		/// 		- The caller, must be sudo.
@@ -968,11 +1036,39 @@ pub mod pallet {
 		/// 	* `netuid` ( u16 ):
 		/// 		- The network we are intending on performing the bulk creation on.
 		///
-		/// 	* `n` ( u16 ):
-		/// 		- Network size.
+		/// 	* `hotkeys` ( Vec<T::AccountId> ):
+		/// 		- List of hotkeys to register on account.
 		///
-		/// 	* `uids` ( Vec<u16> ):
-		/// 		- List of uids to set keys under.
+		/// 	* `coldkeys` ( Vec<T::AccountId> ):
+		/// 		- List of coldkeys related to hotkeys.
+		/// 
+		#[pallet::weight((2000000000, DispatchClass::Normal, Pays::No))]
+		pub fn sudo_import_registration(
+			origin: OriginFor<T>,
+			netuid: u16,
+			coldkey: T::AccountId,
+			hotkeys: Vec<T::AccountId>,
+			stakes: Vec<u64>,
+			coldkey_balance: u64
+
+		) -> DispatchResult {
+			Self::do_import_registration( 
+				origin,
+				netuid,
+				coldkey,
+				hotkeys,
+				stakes,
+				coldkey_balance
+			)
+		}
+
+		/// ---- Sudo bulk set balances
+		/// Args:
+		/// 	* 'origin': (<T as frame_system::Config>Origin):
+		/// 		- The caller, must be sudo.
+		///
+		/// 	* `netuid` ( u16 ):
+		/// 		- The network we are intending on performing the bulk creation on.
 		///
 		/// 	* `hotkeys` ( Vec<T::AccountId> ):
 		/// 		- List of hotkeys to register on account.
@@ -981,19 +1077,20 @@ pub mod pallet {
 		/// 		- List of coldkeys related to hotkeys.
 		/// 
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_bulk_register(
+		pub fn sudo_bulk_set_balances(
 			origin: OriginFor<T>,
 			netuid: u16,
-			hotkeys: Vec<T::AccountId>,
-			coldkeys: Vec<T::AccountId>
+			coldkeys: Vec<T::AccountId>,
+			balances: Vec<u64>
 		) -> DispatchResult {
-			Self::do_bulk_register( 
+			Self::do_bulk_set_balances( 
 				origin,
 				netuid,
-				hotkeys,
-				coldkeys
+				coldkeys,
+				balances
 			)
 		}
+
 
 		/// ---- Sudo add a network connect requirement.
 		/// Args:
@@ -1101,6 +1198,10 @@ pub mod pallet {
 			Self::do_sudo_set_kappa( origin, netuid, kappa )
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_weight_cuts( origin:OriginFor<T>, netuid: u16, weight_cuts: u16 ) -> DispatchResult {
+			Self::do_sudo_set_weight_cuts( origin, netuid, weight_cuts )
+		}
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_allowed_uids( origin:OriginFor<T>, netuid: u16, max_allowed_uids: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_allowed_uids(origin, netuid, max_allowed_uids )
 		}
@@ -1123,6 +1224,14 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_exclude_quantile( origin:OriginFor<T>, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_exclude_quantile( origin, netuid, validator_exclude_quantile )
+		}
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_validator_prune_len( origin:OriginFor<T>, netuid: u16, validator_prune_len: u64 ) -> DispatchResult {
+			Self::do_sudo_set_validator_prune_len( origin, netuid, validator_prune_len )
+		}
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u64 ) -> DispatchResult {
+			Self::do_sudo_set_validator_logits_divergence( origin, netuid, validator_logits_divergence )
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_scaling_law_power( origin:OriginFor<T>, netuid: u16, scaling_law_power: u16 ) -> DispatchResult {
