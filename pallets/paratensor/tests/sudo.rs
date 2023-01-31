@@ -13,7 +13,8 @@ fn test_defaults() {
         add_network(netuid, 10, 0);
         assert_eq!( ParatensorModule::get_number_of_subnets(), 1 ); // There is a single network.
         assert_eq!( ParatensorModule::get_subnetwork_n( netuid ), 0 ); // Network size is zero.
-        assert_eq!( ParatensorModule::get_rho( netuid ), 10 );
+        assert_eq!( ParatensorModule::get_weight_cuts( netuid ), 3 );
+        assert_eq!( ParatensorModule::get_rho( netuid ), 30 );
         assert_eq!( ParatensorModule::get_tempo( netuid ), 10 );
         assert_eq!( ParatensorModule::get_kappa( netuid ), 32_767 );
         assert_eq!( ParatensorModule::get_min_difficulty( netuid ), 1 );
@@ -36,11 +37,52 @@ fn test_defaults() {
         assert_eq!( ParatensorModule::get_validator_epochs_per_reset( netuid ), 10 );
         assert_eq!( ParatensorModule::get_validator_sequence_length( netuid ), 10 );
         assert_eq!( ParatensorModule::get_validator_exclude_quantile( netuid ), 10 );
+        assert_eq!( ParatensorModule::get_validator_logits_divergence( netuid ), 0 );
+        assert_eq!( ParatensorModule::get_validator_prune_len( netuid ), 0 );
         assert_eq!( ParatensorModule::get_scaling_law_power( netuid ), 50 );
         assert_eq!( ParatensorModule::get_synergy_scaling_law_power( netuid ), 50 );
         assert_eq!( ParatensorModule::get_registrations_this_interval( netuid ), 0 );
         assert_eq!( ParatensorModule::get_max_registrations_per_block( netuid ), 3 );
         assert_eq!( ParatensorModule::get_target_registrations_per_interval( netuid ), 2 );
+    });
+}
+
+#[test]
+fn test_sudo_registration() {
+	new_test_ext().execute_with(|| {
+        add_network( 0, 0, 0 );
+        ParatensorModule::set_max_allowed_uids( 0, 10 );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 0, 0, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 1, 1, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 2, 2, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 3, 3, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 4, 4, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 5, 5, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 6, 6, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 7, 7, 10, 11) );
+        assert_ok!( ParatensorModule::sudo_register(<<Test as Config>::RuntimeOrigin>::root(), 0, 8, 8, 10, 11) );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &0 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &1 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &2 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &3 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &4 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &5 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &6 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &7 ), 11 );
+        assert_eq!( ParatensorModule::get_coldkey_balance( &8 ), 11 );
+        assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 0).unwrap(), 0 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 1).unwrap(), 1 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 2).unwrap(), 2 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 3).unwrap(), 3 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 4).unwrap(), 4 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 5).unwrap(), 5 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 6).unwrap(), 6 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 7).unwrap(), 7 );
+		assert_eq!( ParatensorModule::get_hotkey_for_net_and_uid( 0, 8).unwrap(), 8 );
+        assert_eq!( ParatensorModule::get_total_stake(), 90 );
+        assert!( ParatensorModule::coldkey_owns_hotkey( &0, &0 ) );
+        assert_eq!( ParatensorModule::get_owning_coldkey_for_hotkey( &0 ), 0 );
+        assert_eq!( ParatensorModule::get_stake_for_coldkey_and_hotkey( &0, &0 ), 10 );
     });
 }
 
@@ -158,6 +200,38 @@ fn test_sudo_set_validator_exclude_quantile() {
         assert_eq!( ParatensorModule::get_validator_exclude_quantile(netuid), init_value);
         assert_ok!( ParatensorModule::sudo_set_validator_exclude_quantile(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
         assert_eq!( ParatensorModule::get_validator_exclude_quantile(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_validator_prune_len() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        let init_value: u64 = ParatensorModule::get_validator_prune_len( netuid );
+        add_network(netuid, 10, 0);
+        
+        assert_eq!( ParatensorModule::sudo_set_validator_prune_len(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_eq!( ParatensorModule::sudo_set_validator_prune_len(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( ParatensorModule::get_validator_prune_len(netuid), init_value);
+        assert_ok!( ParatensorModule::sudo_set_validator_prune_len(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
+        assert_eq!( ParatensorModule::get_validator_prune_len(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_validator_logits_divergence() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        let init_value: u64 = ParatensorModule::get_validator_logits_divergence( netuid );
+        add_network(netuid, 10, 0);
+
+        assert_eq!( ParatensorModule::sudo_set_validator_logits_divergence(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_eq!( ParatensorModule::sudo_set_validator_logits_divergence(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( ParatensorModule::get_validator_logits_divergence(netuid), init_value);
+        assert_ok!( ParatensorModule::sudo_set_validator_logits_divergence(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
+        assert_eq!( ParatensorModule::get_validator_logits_divergence(netuid), to_be_set);
     });
 }
 
@@ -298,6 +372,35 @@ fn test_sudo_set_max_allowed_uids() {
     });
 }
 
+#[test]
+fn test_sudo_set_weight_cuts() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 3;
+        let init_value: u16 = ParatensorModule::get_weight_cuts( netuid );
+        add_network(netuid, 10, 0);
+		assert_eq!( ParatensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_eq!( ParatensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( ParatensorModule::get_weight_cuts(netuid), init_value);
+        assert_ok!( ParatensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
+        assert_eq!( ParatensorModule::get_weight_cuts(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_and_decrease_max_allowed_uids() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        let init_value: u16 = ParatensorModule::get_max_allowed_uids( netuid );
+        add_network(netuid, 10, 0);
+		assert_eq!( ParatensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_eq!( ParatensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( ParatensorModule::get_max_allowed_uids(netuid), init_value);
+        assert_ok!( ParatensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
+        assert_eq!( ParatensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set-1), Err(Error::<Test>::MaxAllowedUIdsNotAllowed.into()));
+    });
+}
 
 #[test]
 fn test_sudo_set_kappa() {

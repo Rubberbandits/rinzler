@@ -6,6 +6,7 @@ use frame_support::storage::IterableStorageMap;
 use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> { 
+
     pub fn block_step() {
         log::debug!("block_step for block: {:?} ", Self::get_current_block_as_u64() );
         // --- 1. Adjust difficulties.
@@ -15,57 +16,6 @@ impl<T: Config> Pallet<T> {
         // --- 3. Run epochs.
         Self::run_epochs_and_emit( );
     }
-
-        /// Adjusts the network difficulty of every active network. Reseting state parameters.
-    ///
-    pub fn adjust_registration_difficulties( ) {
-        
-        // --- 1. Iterate through each network.
-        for ( netuid, _ )  in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter(){
-
-            // --- 2. Pull counters for network difficulty.
-            let last_adjustment_block: u64 = Self::get_last_adjustment_block( netuid );
-            let adjustment_interval: u16 = Self::get_adjustment_interval( netuid );
-            let current_block: u64 = Self::get_current_block_as_u64( ); 
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}", 
-                netuid,
-                last_adjustment_block,
-                adjustment_interval,
-                current_block
-            );
-
-            // --- 3. Check if we are at the adjustment interval for this network.
-            // If so, we need to adjust the registration difficulty based on target and actual registrations.
-            if ( current_block - last_adjustment_block ) >= adjustment_interval as u64 {
-                let current_difficulty: u64 = Self::get_difficulty_as_u64( netuid );
-                let registrations_this_interval: u16 = Self::get_registrations_this_interval( netuid );
-                let target_registrations_this_interval: u16 = Self::get_target_registrations_per_interval( netuid );
-
-                // --- 4. Adjust network registration interval. 
-                // next_dif = next_dif * ( reg_actual + reg_target / reg_target * reg_target )
-                let adjusted_difficulty: u64 = Self::get_next_difficulty( 
-                    netuid,
-                    current_difficulty,
-                    registrations_this_interval,
-                    target_registrations_this_interval
-                );
-                Self::set_difficulty( netuid, adjusted_difficulty );
-                Self::set_last_adjustment_block( netuid, current_block );
-                Self::set_registrations_this_interval( netuid, 0 );
-                log::debug!("netuid: {:?} current_difficulty: {:?} interval_regs: {:?} target: {:?} adjusted_difficulty: {:?}", 
-                    netuid,
-                    current_difficulty,
-                    registrations_this_interval,
-                    target_registrations_this_interval,
-                    adjusted_difficulty
-                );
-            }
-
-            // --- 5. Drain block registrations for each network. Needed for registration rate limits.
-            Self::set_registrations_this_block( netuid, 0 );
-        }
-    }
-
 
     /// Distributes pending emission onto each network based on the emission vector.
     ///
@@ -128,7 +78,6 @@ impl<T: Config> Pallet<T> {
             Self::set_blocks_since_last_step( netuid_i, Self::get_blocks_since_last_step( netuid_i ) + 1 );
         }
     }
-
 
     /// Distributes pending emission onto each network based on the emission vector.
     ///
@@ -225,6 +174,56 @@ impl<T: Config> Pallet<T> {
             return take_emission.to_num::<u64>();
         } else {
             return 0;
+        }
+    }
+
+    /// Adjusts the network difficulty of every active network. Reseting state parameters.
+    ///
+    pub fn adjust_registration_difficulties( ) {
+        
+        // --- 1. Iterate through each network.
+        for ( netuid, _ )  in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter(){
+
+            // --- 2. Pull counters for network difficulty.
+            let last_adjustment_block: u64 = Self::get_last_adjustment_block( netuid );
+            let adjustment_interval: u16 = Self::get_adjustment_interval( netuid );
+            let current_block: u64 = Self::get_current_block_as_u64( ); 
+            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}", 
+                netuid,
+                last_adjustment_block,
+                adjustment_interval,
+                current_block
+            );
+
+            // --- 3. Check if we are at the adjustment interval for this network.
+            // If so, we need to adjust the registration difficulty based on target and actual registrations.
+            if ( current_block - last_adjustment_block ) >= adjustment_interval as u64 {
+                let current_difficulty: u64 = Self::get_difficulty_as_u64( netuid );
+                let registrations_this_interval: u16 = Self::get_registrations_this_interval( netuid );
+                let target_registrations_this_interval: u16 = Self::get_target_registrations_per_interval( netuid );
+
+                // --- 4. Adjust network registration interval. 
+                // next_dif = next_dif * ( reg_actual + reg_target / reg_target * reg_target )
+                let adjusted_difficulty: u64 = Self::get_next_difficulty( 
+                    netuid,
+                    current_difficulty,
+                    registrations_this_interval,
+                    target_registrations_this_interval
+                );
+                Self::set_difficulty( netuid, adjusted_difficulty );
+                Self::set_last_adjustment_block( netuid, current_block );
+                Self::set_registrations_this_interval( netuid, 0 );
+                log::debug!("netuid: {:?} current_difficulty: {:?} interval_regs: {:?} target: {:?} adjusted_difficulty: {:?}", 
+                    netuid,
+                    current_difficulty,
+                    registrations_this_interval,
+                    target_registrations_this_interval,
+                    adjusted_difficulty
+                );
+            }
+
+            // --- 5. Drain block registrations for each network. Needed for registration rate limits.
+            Self::set_registrations_this_block( netuid, 0 );
         }
     }
 

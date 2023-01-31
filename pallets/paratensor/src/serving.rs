@@ -8,7 +8,7 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller.
     ///
     /// 	* 'netuid' (u16):
@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic serve_prometheus.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>Origin):
+    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller.
     ///
     /// 	* 'netuid' (u16):
