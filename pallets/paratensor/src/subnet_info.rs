@@ -1,4 +1,4 @@
- use super::*;
+use super::*;
 use frame_support::IterableStorageDoubleMap;
 use serde::{Serialize, Deserialize};
 use frame_support::storage::IterableStorageMap;
