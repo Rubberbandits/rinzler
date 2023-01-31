@@ -5889,6 +5889,8 @@ dependencies = [
  "jsonrpsee",
  "log",
  "pallet-transaction-payment-rpc",
+ "paratensor-custom-rpc",
+ "paratensor-custom-rpc-runtime-api",
  "paratensor-runtime",
  "parity-scale-codec",
  "polkadot-cli",
@@ -5929,6 +5931,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "paratensor-custom-rpc"
+version = "0.0.2"
+dependencies = [
+ "jsonrpsee",
+ "pallet-paratensor",
+ "paratensor-custom-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "paratensor-custom-rpc-runtime-api"
+version = "0.0.2"
+dependencies = [
+ "frame-support",
+ "pallet-paratensor",
+ "serde",
+ "sp-api",
+]
+
+[[package]]
 name = "paratensor-runtime"
 version = "0.1.0"
 dependencies = [
@@ -5962,6 +5989,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-xcm",
  "parachain-info",
+ "paratensor-custom-rpc-runtime-api",
  "parity-scale-codec",
  "polkadot-parachain",
  "polkadot-runtime-common",

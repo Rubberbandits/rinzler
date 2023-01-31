@@ -1,6 +1,6 @@
 [package]
 name = "paratensor-custom-rpc"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ['Cameron Fairchild <https://github.com/camfairchild>']
 repository = 'https://github.com/opentensor/paratensor'
@@ -10,20 +10,18 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-jsonrpc-core = { version = "18.0", default-features = false}
-jsonrpc-core-client = { version = "18.0", default-features = false}
-jsonrpc-derive = { version = "18.0", default-features = false}
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
 # Substrate packages
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20" }
-sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
 
 # local packages
 
-paratensor-custom-rpc-runtime-api = { version = "0.0.1", path = "../runtime-api", default-features = false }
+paratensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
 pallet-paratensor = { version = "0.0.1-dev", path = "../../paratensor", default-features = false }
 
 [features]

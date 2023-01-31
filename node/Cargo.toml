@@ -19,6 +19,9 @@ jsonrpsee = { version = "0.15.1", features = ["server"] }
 # Local
 paratensor-runtime = { path = "../runtime" }
 
+paratensor-custom-rpc = { path = "../pallets/paratensor/rpc" }
+paratensor-custom-rpc-runtime-api = { path = "../pallets/paratensor/runtime-api" }
+
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32" }
