@@ -546,4 +546,18 @@ impl<T: Config> Pallet<T> {
         // --- 10. Ok and done.
         Ok(())
     }
+
+    pub fn do_set_max_registrations_per_block(
+        origin: T::RuntimeOrigin, 
+        netuid: u16, 
+        max_registrations_per_block: u16
+    ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        // Actually set max registrations per block
+        MaxRegistrationsPerBlock::<T>::insert( netuid, max_registrations_per_block );
+        log::info!("MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ", netuid, max_registrations_per_block );
+        Self::deposit_event( Event::RegistrationPerIntervalSet( netuid, max_registrations_per_block) );
+        Ok(())
+    }
 }

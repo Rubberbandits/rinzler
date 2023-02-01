@@ -1042,7 +1042,7 @@ pub mod pallet {
 		/// 	* `coldkeys` ( Vec<T::AccountId> ):
 		/// 		- List of coldkeys related to hotkeys.
 		/// 
-		#[pallet::weight((2000000000, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn sudo_import_registration(
 			origin: OriginFor<T>,
 			netuid: u16,
@@ -1248,6 +1248,10 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_weight_limit( origin:OriginFor<T>, netuid: u16, max_weight_limit: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_weight_limit( origin, netuid, max_weight_limit )
+		}
+		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16,) -> DispatchResult {
+			Self::do_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 	}	
 
