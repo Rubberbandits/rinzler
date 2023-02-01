@@ -78,7 +78,7 @@ fn testnet_genesis(
 		balances: paratensor_runtime::BalancesConfig {
 			//balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 			balances: vec![ 
-				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465)
+				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465000)
 				],
 		},
 		sudo: paratensor_runtime::SudoConfig { key: Some(root_key) },

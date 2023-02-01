@@ -555,9 +555,9 @@ impl<T: Config> Pallet<T> {
         ensure_root( origin )?;
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
         // Actually set max registrations per block
-        MaxRegistrationsPerBlock::<T>::insert( netuid, max_registrations_per_block );
+        Self::set_max_registrations_per_block( netuid, max_registrations_per_block);
         log::info!("MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ", netuid, max_registrations_per_block );
-        Self::deposit_event( Event::RegistrationPerIntervalSet( netuid, max_registrations_per_block) );
+        Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
         Ok(())
     }
 }

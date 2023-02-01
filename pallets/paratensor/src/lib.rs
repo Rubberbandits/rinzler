@@ -505,6 +505,7 @@ pub mod pallet {
 		DifficultySet( u16, u64 ), // --- Event created when the difficulty has been set for a subnet.
 		AdjustmentIntervalSet( u16, u16 ), // --- Event created when the adjustment interval is set for a subnet.
 		RegistrationPerIntervalSet( u16, u16 ), // --- Event created when registeration per interval is set for a subnet.
+		MaxRegistrationsPerBlockSet( u16, u16), // --- Event created when we set max registrations per block
 		ActivityCutoffSet( u16, u16 ), // --- Event created when an activity cutoff is set for a subnet.
 		WeightCutsSet( u16, u16 ), // --- Event created when WeightCuts value is set.
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
@@ -592,7 +593,8 @@ pub mod pallet {
 		/// # Args:
 		/// 	* 'n': (T::BlockNumber):
 		/// 		- The number of the block we are initializing.
-		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
+		fn on_idle( _block_number: BlockNumberFor<T>, _remaining_weight: Weight ) -> Weight {
+			log::info!("On_idle Called block {:?} Remaining Weight: {:?} ) ", _block_number, _remaining_weight );
 			Self::block_step();
 			T::DbWeight::get().writes(0)
 		}
@@ -1249,8 +1251,8 @@ pub mod pallet {
 		pub fn sudo_set_max_weight_limit( origin:OriginFor<T>, netuid: u16, max_weight_limit: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_weight_limit( origin, netuid, max_weight_limit )
 		}
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16,) -> DispatchResult {
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
 			Self::do_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 	}	
