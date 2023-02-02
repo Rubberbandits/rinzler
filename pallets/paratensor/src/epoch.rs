@@ -471,8 +471,17 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
-        
-        // Sync parameter updates.
+        VEmission::<T>::insert( netuid, emission.clone() );
+        VRank::<T>::insert( netuid, ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VTrust::<T>::insert( netuid, trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VConsensus::<T>::insert( netuid, consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VIncentive::<T>::insert( netuid, incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VDividends::<T>::insert( netuid, dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VPruningScores::<T>::insert( netuid, pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VValidatorTrust::<T>::insert( netuid, validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        VValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
+        VWeightConsensus::<T>::insert( netuid, validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+
         for i in 0..n {
             Self::set_rank( netuid, i, fixed_proportion_to_u16( ranks[i as usize] ) );
             Self::set_trust( netuid, i, fixed_proportion_to_u16( trust[i as usize] ) );

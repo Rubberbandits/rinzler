@@ -453,6 +453,40 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultKey<T:Config>() -> T::AccountId { T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap() }
 
+	#[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
+	pub(super) type VUids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
+	pub(super) type VKeys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
+
+	#[pallet::storage] /// --- DMAP ( netuid ) --> active
+	pub(super) type VActive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> rank
+	pub(super) type VRank<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> trust
+	pub(super) type VTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> consensus
+	pub(super) type VConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> incentive
+	pub(super) type VIncentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
+	pub(super) type VDividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
+	pub(super) type VEmission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_trust
+	pub(super) type VValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> weight_consensus
+	pub(super) type VWeightConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> pruning_scores
+	pub(super) type VPruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_permit
+    pub(super) type VValidatorPermit<T:Config> = StorageMap<_, Identity, u16, Vec<bool>, OptionQuery>;
+
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weights
+    pub(super) type VWeights<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
+    pub(super) type VBonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
+
+
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> rank
 	pub(super) type Rank<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultRank<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
