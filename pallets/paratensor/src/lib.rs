@@ -534,7 +534,6 @@ pub mod pallet {
 		MaxDifficultySet( u16, u64 ), // --- Event created when setting max difficutly on a network.
 		ServingRateLimitSet( u64 ), // --- Event created when setting the prometheus serving rate limit.
 	}
-	
 
 	/// ================
 	/// ==== Errors ====
@@ -596,15 +595,23 @@ pub mod pallet {
 			Self::block_step();
 			T::DbWeight::get().writes(0)
 		}
-	}
 
+		/// ---- Called after every block import (when fully synced)
+		///
+		/// # Args:
+		/// 	* 'n': (T::BlockNumber):
+		/// 		- The number of the block we are reading state from.
+		fn offchain_worker( _block_number: BlockNumberFor<T> ) {
+			// delegated epoch_dense calcs
+			log::info!("offchain_worker called for block {:?}", _block_number);
+		}
+	}
 
 	/// ======================
 	/// ==== Dispatchables ===
 	/// ======================
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
 		/// --- Sets the caller weights for the incentive mechanism. The call can be
 		/// made from the hotkey account so is potentially insecure, however, the damage
 		/// of changing weights is minimal if caught early. This function includes all the

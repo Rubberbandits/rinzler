@@ -213,6 +213,12 @@ impl<T: Config> Pallet<T> {
         // == Value storage ==
         // ===================
 
+		// s - vec[n] (stake)
+		// w - weight (chain state) linked-list
+		// b - bonds vec<u16, u16>[n]
+
+		// takes 3 vars -> return emission list vector[n] (uid, u64 balance)
+
         // Sync parameter updates.
         for i in 0..n {
             Self::set_rank( netuid, i, fixed_proportion_to_u16( ranks[i as usize] ) );
