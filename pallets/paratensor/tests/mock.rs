@@ -231,6 +231,7 @@ pub fn register_ok_neuron( netuid: u16, hotkey_account_id: u64, coldkey_account_
 	let (nonce, work): (u64, Vec<u8>) = ParatensorModule::create_work_for_block_number( netuid, block_number, start_nonce );
 	let result = ParatensorModule::register( <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id );
 	assert_ok!(result);
+	log::info!("Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}", netuid, hotkey_account_id, coldkey_account_id );
 }
 
 #[allow(dead_code)]

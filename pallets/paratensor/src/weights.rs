@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert( netuid, neuron_uid, zipped_weights );
 
         // --- 17. Set the activity for the weights on this network.
-        LastUpdate::<T>::insert( netuid, neuron_uid, current_block );
+        Self::set_last_update_for_uid( netuid, neuron_uid, current_block );
 
         // --- 18. Emit the tracking event.
         log::info!("WeightsSet( netuid:{:?}, neuron_uid:{:?} )", netuid, neuron_uid );
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_rate_limit( netuid: u16, neuron_uid: u16, current_block: u64 ) -> bool {
         if Self::is_uid_exist_on_network( netuid, neuron_uid ){ 
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
-            let last_set_weights: u64 = Self::get_last_update_for_neuron( netuid, neuron_uid );
+            let last_set_weights: u64 = Self::get_last_update_for_uid( netuid, neuron_uid );
             if last_set_weights == 0 { return true; } // (Storage default) Never set weights.
             return current_block - last_set_weights >= Self::get_weights_set_rate_limit( netuid );
         }
@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
             return true;
         }
         // Check if uid has validator permit.
-        Self::get_validator_permit(netuid, uid)
+        Self::get_validator_permit_for_uid( netuid, uid )
     }
 
     /// Returns True if the uids and weights are have a valid length for uid on network.

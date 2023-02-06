@@ -63,23 +63,21 @@ impl<T: Config> Pallet<T> {
 
             
             let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
-
-            let last_update = LastUpdate::<T>::get( netuid, uid as u16 );
-            let validator_permit = ValidatorPermit::<T>::get( netuid, uid as u16 );
             
             // TODO: replace with last_update check if we remove Active storage
-            let active = Active::<T>::get( netuid, uid as u16 );
+            let active = Self::get_active_for_uid( netuid, uid as u16 );
+            let rank = Self::get_rank_for_uid( netuid, uid as u16 );
+            let emission = Self::get_emission_for_uid( netuid, uid as u16 );
+            let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
+            let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
+            let weight_consensus = Self::get_weight_consensus_for_uid( netuid, uid as u16 );
+            let trust = Self::get_trust_for_uid( netuid, uid as u16 );
+            let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
+            let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
+            let pruning_score = Self::get_pruning_score_for_uid( netuid, uid as u16 );
+            let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
+            let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-            let rank = Rank::<T>::get( netuid, uid as u16 );
-            let emission = Emission::<T>::get( netuid, uid as u16 );
-            let incentive = Incentive::<T>::get( netuid, uid as u16 );
-            let consensus = Consensus::<T>::get( netuid, uid as u16 );
-            let weight_consensus = WeightConsensus::<T>::get( netuid, uid as u16 );
-            let trust = Trust::<T>::get( netuid, uid as u16 );
-            let validator_trust = ValidatorTrust::<T>::get( netuid, uid as u16 );
-            let dividends = Dividends::<T>::get( netuid, uid as u16 );
-            let pruning_score = PruningScores::<T>::get( netuid, uid as u16 );
-            
             let weights = Weights::<T>::get( netuid, uid as u16 );
             let bonds = Bonds::<T>::get( netuid, uid as u16 );
             
@@ -143,24 +141,21 @@ impl<T: Config> Pallet<T> {
             prometheus_info = PrometheusInfo::default();
         }
 
-        let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
+        let coldkey = Owner::<T>::get( hotkey.clone() ).clone();        
 
-        let last_update = LastUpdate::<T>::get( netuid, uid as u16 );
-        let validator_permit = ValidatorPermit::<T>::get( netuid, uid as u16 );
-        
-        // TODO: replace with last_update check if we remove Active storage
-        let active = Active::<T>::get( netuid, uid as u16 );
+        let active = Self::get_active_for_uid( netuid, uid as u16 );
+        let rank = Self::get_rank_for_uid( netuid, uid as u16 );
+        let emission = Self::get_emission_for_uid( netuid, uid as u16 );
+        let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
+        let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
+        let weight_consensus = Self::get_weight_consensus_for_uid( netuid, uid as u16 );
+        let trust = Self::get_trust_for_uid( netuid, uid as u16 );
+        let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
+        let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
+        let pruning_score = Self::get_pruning_score_for_uid( netuid, uid as u16 );
+        let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
+        let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-        let rank = Rank::<T>::get( netuid, uid as u16 );
-        let emission = Emission::<T>::get( netuid, uid as u16 );
-        let incentive = Incentive::<T>::get( netuid, uid as u16 );
-        let consensus = Consensus::<T>::get( netuid, uid as u16 );
-        let weight_consensus = WeightConsensus::<T>::get( netuid, uid as u16 );
-        let trust = Trust::<T>::get( netuid, uid as u16 );
-        let validator_trust = ValidatorTrust::<T>::get( netuid, uid as u16 );
-        let dividends = Dividends::<T>::get( netuid, uid as u16 );
-        let pruning_score = PruningScores::<T>::get( netuid, uid as u16 );
-        
         let weights = Weights::<T>::get( netuid, uid as u16 );
         let bonds = Bonds::<T>::get( netuid, uid as u16 );
         

@@ -90,12 +90,12 @@ fn distribute_nodes(validators_n: usize, network_n: usize, interleave: usize) ->
 #[allow(dead_code)]
 fn uid_stats(netuid: u16, uid: u16) {
 	log::info!( "stake: {:?}", ParatensorModule::get_total_stake_for_hotkey( &(uid as u64) ) );
-	log::info!( "rank: {:?}", ParatensorModule::get_rank( netuid, uid ) );
-	log::info!( "trust: {:?}", ParatensorModule::get_trust( netuid, uid ) );
-	log::info!( "consensus: {:?}", ParatensorModule::get_consensus( netuid, uid ) );
-	log::info!( "incentive: {:?}", ParatensorModule::get_incentive( netuid, uid ) );
-	log::info!( "dividend: {:?}", ParatensorModule::get_dividend( netuid, uid ) );
-	log::info!( "emission: {:?}", ParatensorModule::get_emission( netuid, uid ) );
+	log::info!( "rank: {:?}", ParatensorModule::get_rank_for_uid( netuid, uid ) );
+	log::info!( "trust: {:?}", ParatensorModule::get_trust_for_uid( netuid, uid ) );
+	log::info!( "consensus: {:?}", ParatensorModule::get_consensus_for_uid( netuid, uid ) );
+	log::info!( "incentive: {:?}", ParatensorModule::get_incentive_for_uid( netuid, uid ) );
+	log::info!( "dividend: {:?}", ParatensorModule::get_dividends_for_uid( netuid, uid ) );
+	log::info!( "emission: {:?}", ParatensorModule::get_emission_for_uid( netuid, uid ) );
 }
 
 fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16>, epochs: u16, stake_per_validator: u64, server_self: bool, input_stake: &Vec<u64>, use_input_stake: bool, input_weights: &Vec<Vec<(u16, u16)>>, use_input_weights: bool, random_weights: bool, random_seed: u64, sparse: bool) {
@@ -114,7 +114,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 		}
 		// let stake: u128 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
 		ParatensorModule::add_balance_to_coldkey_account( &(key as u64), stake as u128 );
-		ParatensorModule::add_subnetwork_account( netuid, key, &(key as u64) );
+		ParatensorModule::append_neuron( netuid, &(key as u64), 0 );
 		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &(key as u64), &(key as u64), stake as u64 );
 	}
 	assert_eq!( ParatensorModule::get_subnetwork_n(netuid), n );
@@ -236,12 +236,12 @@ fn test_consensus_guarantees() {
 			let mut minor_emission: I64F64 = I64F64::from_num(0);
 			for set in vec![major_validators, major_servers] {
 				for uid in set {
-					major_emission += I64F64::from_num(ParatensorModule::get_emission( netuid, uid ));
+					major_emission += I64F64::from_num(ParatensorModule::get_emission_for_uid( netuid, uid ));
 				}
 			}
 			for set in vec![minor_validators, minor_servers] {
 				for uid in set {
-					minor_emission += I64F64::from_num(ParatensorModule::get_emission( netuid, uid ));
+					minor_emission += I64F64::from_num(ParatensorModule::get_emission_for_uid( netuid, uid ));
 				}
 			}
 			let major_ratio: I32F32 = I32F32::from_num(major_emission / (major_emission + minor_emission));
@@ -261,12 +261,12 @@ fn test_overflow() {
 		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &0, &0, 10 );
 		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &1, &1, 10 );
 		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &2, &2, 10 );
-		ParatensorModule::add_subnetwork_account( netuid, 0, &0 );
-		ParatensorModule::add_subnetwork_account( netuid, 1, &1 );
-		ParatensorModule::add_subnetwork_account( netuid, 2, &2);
-		ParatensorModule::set_validator_permit(0, 0, true);
-		ParatensorModule::set_validator_permit(0, 1, true);
-		ParatensorModule::set_validator_permit(0, 2, true);
+		ParatensorModule::append_neuron( netuid, &0, 0 );
+		ParatensorModule::append_neuron( netuid, &1, 0 );
+		ParatensorModule::append_neuron( netuid, &2, 0 );
+		ParatensorModule::set_validator_permit_for_uid(0, 0, true);
+		ParatensorModule::set_validator_permit_for_uid(0, 1, true);
+		ParatensorModule::set_validator_permit_for_uid(0, 2, true);
 		assert_ok!(ParatensorModule::set_weights(RuntimeOrigin::signed(0), netuid, vec![ 0, 1, 2 ], vec![ u16::MAX/3, u16::MAX/3, u16::MAX ], 0));
 		assert_ok!(ParatensorModule::set_weights(RuntimeOrigin::signed(1), netuid, vec![ 1, 2 ], vec![ u16::MAX/2, u16::MAX/2 ], 0));
 		assert_ok!(ParatensorModule::set_weights(RuntimeOrigin::signed(2), netuid, vec![ 2 ], vec![ u16::MAX ], 0));
@@ -297,7 +297,7 @@ fn test_1_graph() {
 		ParatensorModule::set_max_allowed_uids( netuid, 1 ); 
 		ParatensorModule::add_balance_to_coldkey_account( &coldkey, stake_amount as u128 );
  		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_amount );
-		ParatensorModule::add_subnetwork_account( netuid, uid, &hotkey );
+		 ParatensorModule::append_neuron( netuid, &hotkey, 0 );
 		assert_eq!( ParatensorModule::get_subnetwork_n(netuid), 1 );
 		run_to_block( 1 ); // run to next block to ensure weights are set on nodes after their registration block
 		assert_ok!(ParatensorModule::set_weights(RuntimeOrigin::signed(uid as u64), netuid, vec![ uid as u16 ], vec![ u16::MAX ], 0));
@@ -305,12 +305,12 @@ fn test_1_graph() {
 		// ParatensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
 		ParatensorModule::epoch( 0, 1_000_000_000 );
 		assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &hotkey ), stake_amount );
-		assert_eq!( ParatensorModule::get_rank( netuid, uid ), 0 );
-		assert_eq!( ParatensorModule::get_trust( netuid, uid ), 0 );
-		assert_eq!( ParatensorModule::get_consensus( netuid, uid ), 0 );
-		assert_eq!( ParatensorModule::get_incentive( netuid, uid ), 0 );
-		assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 0 );
-		assert_eq!( ParatensorModule::get_emission( netuid, uid ), 1_000_000_000 );
+		assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), 0 );
+		assert_eq!( ParatensorModule::get_trust_for_uid( netuid, uid ), 0 );
+		assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, uid ), 0 );
+		assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), 0 );
+		assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 0 );
+		assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 1_000_000_000 );
 	});
 }
 
@@ -337,7 +337,7 @@ fn test_10_graph() {
 				ParatensorModule::get_subnetwork_n(netuid),
 			);
 			ParatensorModule::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_amount );
-			ParatensorModule::add_subnetwork_account( netuid, uid, &hotkey );
+			ParatensorModule::append_neuron( netuid, &hotkey, 0 );
 			assert_eq!( ParatensorModule::get_subnetwork_n(netuid) - 1 , uid );
 		}
 		// Build the graph with 10 items 
@@ -365,12 +365,12 @@ fn test_10_graph() {
 		// Check return values.
 		for i in 0..n {
 			assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(i as u64) ), 1 );
-			assert_eq!( ParatensorModule::get_rank( netuid, i as u16 ), 0 );
-			assert_eq!( ParatensorModule::get_trust( netuid, i as u16 ), 0 );
-			assert_eq!( ParatensorModule::get_consensus( netuid, i as u16 ), 0 );
-			assert_eq!( ParatensorModule::get_incentive( netuid, i as u16 ), 0 );
-			assert_eq!( ParatensorModule::get_dividend( netuid, i as u16 ), 0 );
-			assert_eq!( ParatensorModule::get_emission( netuid, i as u16 ), 99999999 );
+			assert_eq!( ParatensorModule::get_rank_for_uid( netuid, i as u16 ), 0 );
+			assert_eq!( ParatensorModule::get_trust_for_uid( netuid, i as u16 ), 0 );
+			assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, i as u16 ), 0 );
+			assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, i as u16 ), 0 );
+			assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, i as u16 ), 0 );
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, i as u16 ), 99999999 );
 		}
 	});
 }
@@ -394,23 +394,23 @@ fn test_512_graph() {
 				let bonds = ParatensorModule::get_bonds( netuid );
 				for uid in validators {
 					assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(uid as u64) ), max_stake_per_validator );
-					assert_eq!( ParatensorModule::get_rank( netuid, uid ), 0 );
-					assert_eq!( ParatensorModule::get_trust( netuid, uid ), 0 );
-					assert_eq!( ParatensorModule::get_consensus( netuid, uid ), 0 );
-					assert_eq!( ParatensorModule::get_incentive( netuid, uid ), 0 );
-					assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 1023 ); // Note D = floor(1 / 64 * 65_535) = 1023
-					assert_eq!( ParatensorModule::get_emission( netuid, uid ), 7812500 ); // Note E = 0.5 / 200 * 1_000_000_000 = 7_812_500
+					assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), 0 );
+					assert_eq!( ParatensorModule::get_trust_for_uid( netuid, uid ), 0 );
+					assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, uid ), 0 );
+					assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), 0 );
+					assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 1023 ); // Note D = floor(1 / 64 * 65_535) = 1023
+					assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 7812500 ); // Note E = 0.5 / 200 * 1_000_000_000 = 7_812_500
 					assert_eq!( bonds[uid as usize][validator], 0.0 );
 					assert_eq!( bonds[uid as usize][server], I32F32::from_num(1023) / I32F32::from_num(65_535) ); // Note B_ij = floor(1 / 64 * 65_535) / 65_535 = 1023 / 65_535
 				}
 				for uid in servers {
 					assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 0 );
-					assert_eq!( ParatensorModule::get_rank( netuid, uid ), 146 ); // Note R = floor(1 / (512 - 64) * 65_535) = 146
-					assert_eq!( ParatensorModule::get_trust( netuid, uid ), 65535 );
-					assert_eq!( ParatensorModule::get_consensus( netuid, uid ), 65534 ); // Note C = 1/(1+exp(-10*(1-0.5)))
-					assert_eq!( ParatensorModule::get_incentive( netuid, uid ), 146 ); // Note I = floor(1 / (512 - 64) * 65_535) = 146
-					assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 0 );
-					assert_eq!( ParatensorModule::get_emission( netuid, uid ), 1116071 ); // Note E = floor(0.5 / (512 - 64) * 1_000_000_000) = 1_116_071
+					assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), 146 ); // Note R = floor(1 / (512 - 64) * 65_535) = 146
+					assert_eq!( ParatensorModule::get_trust_for_uid( netuid, uid ), 65535 );
+					assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, uid ), 65534 ); // Note C = 1/(1+exp(-10*(1-0.5)))
+					assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), 146 ); // Note I = floor(1 / (512 - 64) * 65_535) = 146
+					assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 0 );
+					assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 1116071 ); // Note E = floor(0.5 / (512 - 64) * 1_000_000_000) = 1_116_071
 					assert_eq!( bonds[uid as usize][validator], 0.0 );
 					assert_eq!( bonds[uid as usize][server], 0.0 );
 				}
@@ -440,10 +440,10 @@ fn test_512_graph_random_weights() {
 
 				let bond = ParatensorModule::get_bonds( netuid );
 				for uid in 0..network_n {
-					rank.push( ParatensorModule::get_rank( netuid, uid ) );
-					incentive.push( ParatensorModule::get_incentive( netuid, uid ) );
-					dividend.push( ParatensorModule::get_dividend( netuid, uid ) );
-					emission.push( ParatensorModule::get_emission( netuid, uid ) );
+					rank.push( ParatensorModule::get_rank_for_uid( netuid, uid ) );
+					incentive.push( ParatensorModule::get_incentive_for_uid( netuid, uid ) );
+					dividend.push( ParatensorModule::get_dividends_for_uid( netuid, uid ) );
+					emission.push( ParatensorModule::get_emission_for_uid( netuid, uid ) );
 					bondv.push( bond[uid as usize][validator] );
 					bonds.push( bond[uid as usize][server] );
 				}
@@ -455,10 +455,10 @@ fn test_512_graph_random_weights() {
 				// Assert that dense and sparse epoch results are equal
 				let bond = ParatensorModule::get_bonds( netuid );
 				for uid in 0..network_n {
-					assert_eq!( ParatensorModule::get_rank( netuid, uid ), rank[uid as usize] );
-					assert_eq!( ParatensorModule::get_incentive( netuid, uid ), incentive[uid as usize] );
-					assert_eq!( ParatensorModule::get_dividend( netuid, uid ), dividend[uid as usize] );
-					assert_eq!( ParatensorModule::get_emission( netuid, uid ), emission[uid as usize] );
+					assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), rank[uid as usize] );
+					assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), incentive[uid as usize] );
+					assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), dividend[uid as usize] );
+					assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), emission[uid as usize] );
 					assert_eq!( bond[uid as usize][validator], bondv[uid as usize] );
 					assert_eq!( bond[uid as usize][server], bonds[uid as usize] );
 				}
@@ -488,23 +488,23 @@ fn test_4096_graph() {
 				let bonds = ParatensorModule::get_bonds( netuid );
 				for uid in &validators {
 					assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(*uid as u64) ), max_stake_per_validator );
-					assert_eq!( ParatensorModule::get_rank( netuid, *uid ), 0 );
-					assert_eq!( ParatensorModule::get_trust( netuid, *uid ), 0 );
-					assert_eq!( ParatensorModule::get_consensus( netuid, *uid ), 0 );
-					assert_eq!( ParatensorModule::get_incentive( netuid, *uid ), 0 );
-					assert_eq!( ParatensorModule::get_dividend( netuid, *uid ), 255 ); // Note D = floor(1 / 256 * 65_535)
-					assert_eq!( ParatensorModule::get_emission( netuid, *uid ), 1953125 ); // Note E = 0.5 / 256 * 1_000_000_000 = 1953125
+					assert_eq!( ParatensorModule::get_rank_for_uid( netuid, *uid ), 0 );
+					assert_eq!( ParatensorModule::get_trust_for_uid( netuid, *uid ), 0 );
+					assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, *uid ), 0 );
+					assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, *uid ), 0 );
+					assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, *uid ), 255 ); // Note D = floor(1 / 256 * 65_535)
+					assert_eq!( ParatensorModule::get_emission_for_uid( netuid, *uid ), 1953125 ); // Note E = 0.5 / 256 * 1_000_000_000 = 1953125
 					assert_eq!( bonds[*uid as usize][validator], 0.0 );
 					assert_eq!( bonds[*uid as usize][server], I32F32::from_num(255) / I32F32::from_num(65_535) ); // Note B_ij = floor(1 / 256 * 65_535) / 65_535
 				}
 				for uid in &servers {
 					assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(*uid as u64) ), 0 );
-					assert_eq!( ParatensorModule::get_rank( netuid, *uid ), 17 ); // Note R = floor(1 / (4096 - 256) * 65_535) = 16
-					assert_eq!( ParatensorModule::get_trust( netuid, *uid ), 65535 );
-					assert_eq!( ParatensorModule::get_consensus( netuid, *uid ), 65534 ); // Note C = 1/(1+exp(-30*(1-0.5)))
-					assert_eq!( ParatensorModule::get_incentive( netuid, *uid ), 17 ); // Note I = floor(1 / (4096 - 256) * 65_535) = 16
-					assert_eq!( ParatensorModule::get_dividend( netuid, *uid ), 0 );
-					assert_eq!( ParatensorModule::get_emission( netuid, *uid ), 130208 ); // Note E = floor(0.5 / (4096 - 256) * 1_000_000_000) = 130208
+					assert_eq!( ParatensorModule::get_rank_for_uid( netuid, *uid ), 17 ); // Note R = floor(1 / (4096 - 256) * 65_535) = 16
+					assert_eq!( ParatensorModule::get_trust_for_uid( netuid, *uid ), 65535 );
+					assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, *uid ), 65534 ); // Note C = 1/(1+exp(-30*(1-0.5)))
+					assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, *uid ), 17 ); // Note I = floor(1 / (4096 - 256) * 65_535) = 16
+					assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, *uid ), 0 );
+					assert_eq!( ParatensorModule::get_emission_for_uid( netuid, *uid ), 130208 ); // Note E = floor(0.5 / (4096 - 256) * 1_000_000_000) = 130208
 					assert_eq!( bonds[*uid as usize][validator], 0.0 );
 					assert_eq!( bonds[*uid as usize][server], 0.0 );
 				}
@@ -530,23 +530,23 @@ fn test_16384_graph_sparse() {
 		let bonds = ParatensorModule::get_bonds( netuid );
 		for uid in validators {
 			assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 1 );
-			assert_eq!( ParatensorModule::get_rank( netuid, uid ), 0 );
-			assert_eq!( ParatensorModule::get_trust( netuid, uid ), 0 );
-			assert_eq!( ParatensorModule::get_consensus( netuid, uid ), 438 ); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
-			assert_eq!( ParatensorModule::get_incentive( netuid, uid ), 0 );
-			assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 127 ); // Note D = floor(1 / 512 * 65_535) = 127
-			assert_eq!( ParatensorModule::get_emission( netuid, uid ), 976085 ); // Note E = 0.5 / 512 * 1_000_000_000 = 976_562 (discrepancy)
+			assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), 0 );
+			assert_eq!( ParatensorModule::get_trust_for_uid( netuid, uid ), 0 );
+			assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, uid ), 438 ); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
+			assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), 0 );
+			assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 127 ); // Note D = floor(1 / 512 * 65_535) = 127
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 976085 ); // Note E = 0.5 / 512 * 1_000_000_000 = 976_562 (discrepancy)
 			assert_eq!( bonds[uid as usize][0], 0.0 );
 			assert_eq!( bonds[uid as usize][server as usize], I32F32::from_num(127) / I32F32::from_num(65_535) ); // Note B_ij = floor(1 / 512 * 65_535) / 65_535 = 127 / 65_535
 		}
 		for uid in servers {
 			assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 0 );
-			assert_eq!( ParatensorModule::get_rank( netuid, uid ), 4 ); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
-			assert_eq!( ParatensorModule::get_trust( netuid, uid ), 65535 );
-			assert_eq!( ParatensorModule::get_consensus( netuid, uid ), 65096 ); // Note C = 1/(1+exp(-10*(1-0.5))) = 0.9932 => (0.9932*65_535) = floor( 65089.362 )
-			assert_eq!( ParatensorModule::get_incentive( netuid, uid ), 4 ); // Note I = floor(1 / (16384 - 512) * 65_535) = 4
-			assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 0 );
-			assert_eq!( ParatensorModule::get_emission( netuid, uid ), 31517 ); // Note E = floor(0.5 / (16384 - 512) * 1_000_000_000) = 31502 (discrepancy)
+			assert_eq!( ParatensorModule::get_rank_for_uid( netuid, uid ), 4 ); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
+			assert_eq!( ParatensorModule::get_trust_for_uid( netuid, uid ), 65535 );
+			assert_eq!( ParatensorModule::get_consensus_for_uid( netuid, uid ), 65096 ); // Note C = 1/(1+exp(-10*(1-0.5))) = 0.9932 => (0.9932*65_535) = floor( 65089.362 )
+			assert_eq!( ParatensorModule::get_incentive_for_uid( netuid, uid ), 4 ); // Note I = floor(1 / (16384 - 512) * 65_535) = 4
+			assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 0 );
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 31517 ); // Note E = floor(0.5 / (16384 - 512) * 1_000_000_000) = 31502 (discrepancy)
 			assert_eq!( bonds[uid as usize][0], 0.0 );
 			assert_eq!( bonds[uid as usize][server as usize], 0.0 );
 		}
@@ -596,9 +596,9 @@ fn test_active_stake() {
 			// uid_stats(netuid, uid);
 			// log::info!("bonds: {:?}", bonds[uid as usize]);
 			if uid < n/2 {
-				assert_eq!( ParatensorModule::get_dividend( netuid, uid ), 32767 ); // Note D = floor(0.5 * 65_535)
+				assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, uid ), 32767 ); // Note D = floor(0.5 * 65_535)
 			}
-			assert_eq!( ParatensorModule::get_emission( netuid, uid ), 250000000 ); // Note E = 0.5 / (n/2) * 1_000_000_000 = 250_000_000
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, uid ), 250000000 ); // Note E = 0.5 / (n/2) * 1_000_000_000 = 250_000_000
 		}
 		for validator in 0..(n/2) as usize {
 			for on_validator in 0..(n/2) as usize {
@@ -640,14 +640,14 @@ fn test_active_stake() {
 			E: [274999999, 224999999, 250000000, 250000000]
 			P: [0.275, 0.2249999999, 0.25, 0.25] */
 		let bonds = ParatensorModule::get_bonds( netuid );
-		assert_eq!( ParatensorModule::get_dividend( netuid, 0 ), 36044 ); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
-		assert_eq!( ParatensorModule::get_emission( netuid, 0 ), 274999999 ); // Note E = 0.5 * 0.55 * 1_000_000_000 = 275_000_000 (discrepancy)
+		assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, 0 ), 36044 ); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
+		assert_eq!( ParatensorModule::get_emission_for_uid( netuid, 0 ), 274999999 ); // Note E = 0.5 * 0.55 * 1_000_000_000 = 275_000_000 (discrepancy)
 		for server in ((n/2) as usize)..n as usize {
 			assert_eq!( bonds[0][server], I32F32::from_num(36044) / I32F32::from_num(65_535) ); // floor(0.55*(2^16-1))/(2^16-1)
 		}
 		for validator in 1..(n/2) as u16 {
-			assert_eq!( ParatensorModule::get_dividend( netuid, validator ), 29490 ); // Note D = floor((0.5 * 0.9) * 65_535)
-			assert_eq!( ParatensorModule::get_emission( netuid, validator  ), 224999999 ); // Note E = 0.5 * 0.45 * 1_000_000_000 = 225_000_000 (discrepancy)
+			assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, validator ), 29490 ); // Note D = floor((0.5 * 0.9) * 65_535)
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, validator  ), 224999999 ); // Note E = 0.5 * 0.45 * 1_000_000_000 = 225_000_000 (discrepancy)
 			for server in ((n/2) as usize)..n as usize {
 				assert_eq!( bonds[validator as usize][server], I32F32::from_num(29490) / I32F32::from_num(65_535) ); // floor(0.45*(2^16-1))/(2^16-1)
 			}
@@ -683,13 +683,13 @@ fn test_active_stake() {
 			E: [272502060, 227497939, 250000000, 250000000]
 			P: [0.27250206, 0.2274979397, 0.25, 0.25] */
 		let bonds = ParatensorModule::get_bonds( netuid );
-		assert_eq!( ParatensorModule::get_dividend( netuid, 0 ), 35716 ); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
-		assert_eq!( ParatensorModule::get_emission( netuid, 0 ), 272502060 ); // Note E = 0.5 * (0.55 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 272_500_000 (discrepancy)
+		assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, 0 ), 35716 ); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
+		assert_eq!( ParatensorModule::get_emission_for_uid( netuid, 0 ), 272502060 ); // Note E = 0.5 * (0.55 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 272_500_000 (discrepancy)
 		for server in ((n/2) as usize)..n as usize {
 			assert_eq!( bonds[0][server], I32F32::from_num(35716) / I32F32::from_num(65_535) ); // floor((0.55 * 0.9 + 0.5 * 0.1)*(2^16-1))/(2^16-1)
 		}
-		assert_eq!( ParatensorModule::get_dividend( netuid, 1 ), 29818 ); // Note D = floor((0.45 * 0.9 + 0.5 * 0.1) * 65_535)
-		assert_eq!( ParatensorModule::get_emission( netuid, 1 ), 227497939 ); // Note E = 0.5 * (0.45 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 227_500_000 (discrepancy)
+		assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, 1 ), 29818 ); // Note D = floor((0.45 * 0.9 + 0.5 * 0.1) * 65_535)
+		assert_eq!( ParatensorModule::get_emission_for_uid( netuid, 1 ), 227497939 ); // Note E = 0.5 * (0.45 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 227_500_000 (discrepancy)
 		for server in ((n/2) as usize)..n as usize {
 			assert_eq!( bonds[1][server], I32F32::from_num(29818) / I32F32::from_num(65_535) ); // floor((0.45 * 0.9 + 0.5 * 0.1)*(2^16-1))/(2^16-1)
 		}
@@ -802,8 +802,8 @@ fn test_outdated_weights() {
 			E: [249311245, 250688754, 499195682, 804317]
 			P: [0.249311245, 0.2506887547, 0.4991956824, 0.0008043174] */
 		let bonds = ParatensorModule::get_bonds( netuid );
-		assert_eq!( ParatensorModule::get_dividend( netuid, 0 ), 32677 ); // Note D = floor(0.49862249 * 65_535)
-		assert_eq!( ParatensorModule::get_emission( netuid, 0 ), 249311245 ); // Note E = 0.5 * 0.49862249 * 1_000_000_000 = 249311245
+		assert_eq!( ParatensorModule::get_dividends_for_uid( netuid, 0 ), 32677 ); // Note D = floor(0.49862249 * 65_535)
+		assert_eq!( ParatensorModule::get_emission_for_uid( netuid, 0 ), 249311245 ); // Note E = 0.5 * 0.49862249 * 1_000_000_000 = 249311245
 		assert_eq!( bonds[0][2], I32F32::from_num(32624) / I32F32::from_num(65_535) ); // floor(0.4978146572*(2^16-1))/(2^16-1)
 		assert_eq!( bonds[0][3], I32F32::from_num(1) ); // only uid0 has updated weights for new reg
 	});
@@ -845,10 +845,10 @@ fn test_zero_weights() {
 			ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
 			E: [1000000000, 0]; P: [1, 0] */
 		for validator in 0..(n/2) as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
 		}
 		for server in (n/2)..n as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, server ), 0 ); // no stake
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, server ), 0 ); // no stake
 		}
 		run_to_block( 1 ); block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
 
@@ -867,10 +867,10 @@ fn test_zero_weights() {
 			ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
 			E: [1000000000, 0]; P: [1, 0] */
 		for validator in 0..(n/2) as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
 		}
 		for server in (n/2)..n as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, server ), 0 ); // no stake
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, server ), 0 ); // no stake
 		}
 		run_to_block( 2 ); block_number += 1;
 
@@ -894,10 +894,10 @@ fn test_zero_weights() {
 		ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]; 
 		E: [1000000000, 0]; P: [1, 0] */
 		for validator in 0..(n/2) as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, validator ), 1000000000 ); // Note E = 1 * 1_000_000_000
 		}
 		for server in (n/2)..n as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, server ), 0 ); // no stake
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, server ), 0 ); // no stake
 		}
 		run_to_block( 3 );
 
@@ -915,7 +915,7 @@ fn test_zero_weights() {
 		ΔB: [[(1, 1)], []]; ΔB (norm): [[(1, 1)], []]; emaB: [[(1, 1)], []]; D: [1, 0]; 
 		E: [500000000, 500000000]; P: [0.5, 0.5] */
 		for validator in 0..n as u16 {
-			assert_eq!( ParatensorModule::get_emission( netuid, validator ), 1000000000 / (n as u64) ); // Note E = 1/2 * 1_000_000_000
+			assert_eq!( ParatensorModule::get_emission_for_uid( netuid, validator ), 1000000000 / (n as u64) ); // Note E = 1/2 * 1_000_000_000
 		}
 	});
 }
@@ -965,10 +965,10 @@ fn test_validator_permits() {
 					assert_eq!( ParatensorModule::get_max_allowed_validators(netuid), validators_n as u16);
 					ParatensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
 					for validator in &validators {
-						assert_eq!(correct, ParatensorModule::get_validator_permit(netuid, *validator));
+						assert_eq!(correct, ParatensorModule::get_validator_permit_for_uid(netuid, *validator));
 					}
 					for server in &servers {
-						assert_eq!(!correct, ParatensorModule::get_validator_permit(netuid, *server));
+						assert_eq!(!correct, ParatensorModule::get_validator_permit_for_uid(netuid, *server));
 					}
 
 					// === Increase server stake above validators
@@ -983,10 +983,10 @@ fn test_validator_permits() {
 
 					// === Check that servers now own permits instead of the validator uids
 					for validator in &validators {
-						assert_eq!(!correct, ParatensorModule::get_validator_permit(netuid, *validator));
+						assert_eq!(!correct, ParatensorModule::get_validator_permit_for_uid(netuid, *validator));
 					}
 					for server in &servers {
-						assert_eq!(correct, ParatensorModule::get_validator_permit(netuid, *server));
+						assert_eq!(correct, ParatensorModule::get_validator_permit_for_uid(netuid, *server));
 					}
 				});
 			}
@@ -1053,12 +1053,12 @@ fn _map_consensus_guarantees() {
 					let mut minor_emission: I64F64 = I64F64::from_num(0);
 					for set in vec![major_validators, major_servers] {
 						for uid in set {
-							major_emission += I64F64::from_num(ParatensorModule::get_emission( netuid, uid ));
+							major_emission += I64F64::from_num(ParatensorModule::get_emission_for_uid( netuid, uid ));
 						}
 					}
 					for set in vec![minor_validators, minor_servers] {
 						for uid in set {
-							minor_emission += I64F64::from_num(ParatensorModule::get_emission( netuid, uid ));
+							minor_emission += I64F64::from_num(ParatensorModule::get_emission_for_uid( netuid, uid ));
 						}
 					}
 					let major_ratio: I32F32 = I32F32::from_num(major_emission / (major_emission + minor_emission));

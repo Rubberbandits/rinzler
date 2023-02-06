@@ -597,6 +597,7 @@ fn test_full_with_delegating() {
 
 		let coldkey0 = 3;
 		let coldkey1 = 4;
+		ParatensorModule::set_max_registrations_per_block(1,4);
 
 		// Neither key can add stake because they dont have fundss.
 		assert_eq!(ParatensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 60000), Err(Error::<Test>::NotEnoughBalanceToStake.into()));

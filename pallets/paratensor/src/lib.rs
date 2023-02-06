@@ -23,6 +23,7 @@ mod benchmarking;
 mod registration;
 mod epoch;
 mod math;
+mod uids;
 mod utils;
 mod staking;
 mod weights;
@@ -288,7 +289,6 @@ pub mod pallet {
 
 	// --- Struct for Prometheus.
 	pub type PrometheusInfoOf = PrometheusInfo;
-
 	#[serde_as]
 	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 	pub struct PrometheusInfo {
@@ -421,105 +421,53 @@ pub mod pallet {
 	/// ==== Subnetwork Consensus Storage  ====
 	/// =======================================
 	#[pallet::type_value] 
-	pub fn DefaultRank<T:Config>() -> u16 { 0 }
+	pub fn EmptyU16Vec<T:Config>() -> Vec<u16> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultStake<T:Config>() -> u64 { 0 }
+	pub fn EmptyU64Vec<T:Config>() -> Vec<u64> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultTrust<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorTrust<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultEmission<T:Config>() -> u64 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultIncentive<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultConsensus<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultWeightConsensus<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultLastUpdate<T:Config>() -> u64 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultDividends<T: Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultActive<T:Config>() -> bool { false }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorPermit<T:Config>() -> bool { false }
+	pub fn EmptyBoolVec<T:Config>() -> Vec<bool> { vec![] }
 	#[pallet::type_value] 
 	pub fn DefaultBonds<T:Config>() -> Vec<(u16, u16)> { vec![] }
 	#[pallet::type_value] 
 	pub fn DefaultWeights<T:Config>() -> Vec<(u16, u16)> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultPruningScore<T: Config>() -> u16 { T::InitialPruningScore::get() }
-	#[pallet::type_value] 
 	pub fn DefaultKey<T:Config>() -> T::AccountId { T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap() }
 
 	#[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
-	pub(super) type VUids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
-	pub(super) type VKeys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-
-	#[pallet::storage] /// --- DMAP ( netuid ) --> active
-	pub(super) type VActive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> rank
-	pub(super) type VRank<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> trust
-	pub(super) type VTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> consensus
-	pub(super) type VConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> incentive
-	pub(super) type VIncentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
-	pub(super) type VDividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
-	pub(super) type VEmission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_trust
-	pub(super) type VValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> weight_consensus
-	pub(super) type VWeightConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> pruning_scores
-	pub(super) type VPruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_permit
-    pub(super) type VValidatorPermit<T:Config> = StorageMap<_, Identity, u16, Vec<bool>, OptionQuery>;
-
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weights
-    pub(super) type VWeights<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
-    pub(super) type VBonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
-
-
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> rank
-	pub(super) type Rank<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultRank<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> trust
-	pub(super) type Trust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultTrust<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> validator_trust
-	pub(super) type ValidatorTrust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultValidatorTrust<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> active
-	pub(super) type Active<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, bool, ValueQuery, DefaultActive<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
 	pub(super) type Keys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> emission 
-	pub(super) type Emission<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u64, ValueQuery, DefaultEmission<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> incentive
-	pub(super) type Incentive<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultIncentive<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> consensus
-	pub(super) type Consensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultConsensus<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weight_consensus
-	pub(super) type WeightConsensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultWeightConsensus<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> dividends
-	pub(super) type Dividends<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultDividends<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> last_update
-	pub(super) type LastUpdate<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64 , ValueQuery, DefaultLastUpdate<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
-    pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> validator_permit
-    pub(super) type ValidatorPermit<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, bool, ValueQuery, DefaultValidatorPermit<T> >;
+	
+	#[pallet::storage] /// --- DMAP ( netuid ) --> active
+	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> rank
+	pub(super) type Rank<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> trust
+	pub(super) type Trust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> consensus
+	pub(super) type Consensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> incentive
+	pub(super) type Incentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
+	pub(super) type Dividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
+	pub(super) type Emission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> last_update
+	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_trust
+	pub(super) type ValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> weight_consensus
+	pub(super) type WeightConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> pruning_scores
+	pub(super) type PruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_permit
+    pub(super) type ValidatorPermit<T:Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
+
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weights
     pub(super) type Weights<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> pruning_score.
-	pub(super) type PruningScores<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultPruningScore<T> >;
-	
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
+    pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
+
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -1064,70 +1012,6 @@ pub mod pallet {
 			)
 		}
 
-		/// ---- Sudo bulk register accounts
-		/// Args:
-		/// 	* 'origin': (<T as frame_system::Config>Origin):
-		/// 		- The caller, must be sudo.
-		///
-		/// 	* `netuid` ( u16 ):
-		/// 		- The network we are intending on performing the bulk creation on.
-		///
-		/// 	* `hotkeys` ( Vec<T::AccountId> ):
-		/// 		- List of hotkeys to register on account.
-		///
-		/// 	* `coldkeys` ( Vec<T::AccountId> ):
-		/// 		- List of coldkeys related to hotkeys.
-		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_import_registration(
-			origin: OriginFor<T>,
-			netuid: u16,
-			coldkey: T::AccountId,
-			hotkeys: Vec<T::AccountId>,
-			stakes: Vec<u64>,
-			coldkey_balance: u64
-
-		) -> DispatchResult {
-			Self::do_import_registration( 
-				origin,
-				netuid,
-				coldkey,
-				hotkeys,
-				stakes,
-				coldkey_balance
-			)
-		}
-
-		/// ---- Sudo bulk set balances
-		/// Args:
-		/// 	* 'origin': (<T as frame_system::Config>Origin):
-		/// 		- The caller, must be sudo.
-		///
-		/// 	* `netuid` ( u16 ):
-		/// 		- The network we are intending on performing the bulk creation on.
-		///
-		/// 	* `hotkeys` ( Vec<T::AccountId> ):
-		/// 		- List of hotkeys to register on account.
-		///
-		/// 	* `coldkeys` ( Vec<T::AccountId> ):
-		/// 		- List of coldkeys related to hotkeys.
-		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_bulk_set_balances(
-			origin: OriginFor<T>,
-			netuid: u16,
-			coldkeys: Vec<T::AccountId>,
-			balances: Vec<u64>
-		) -> DispatchResult {
-			Self::do_bulk_set_balances( 
-				origin,
-				netuid,
-				coldkeys,
-				balances
-			)
-		}
-
-
 		/// ---- Sudo add a network connect requirement.
 		/// Args:
 		/// 	* 'origin': (<T as frame_system::Config>Origin):
@@ -1287,7 +1171,7 @@ pub mod pallet {
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
-			Self::do_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
+			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 	}	
 

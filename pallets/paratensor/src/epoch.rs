@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         // =======================
 
         // Get validator permits.
-        let validator_permits: Vec<bool> = Self::get_validator_permits( netuid );
+        let validator_permits: Vec<bool> = Self::get_validator_permit( netuid );
         log::debug!( "validator_permits: {:?}", validator_permits );
 
         // Logical negation of validator_permits.
@@ -212,28 +212,40 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
+        let cloned_emission: Vec<u64> = emission.clone();
+        let cloned_ranks: Vec<u16> = ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_trust: Vec<u16> = trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        Emission::<T>::insert( netuid, cloned_emission );
+        Rank::<T>::insert( netuid, cloned_ranks);
+        Trust::<T>::insert( netuid, cloned_trust);
+        Consensus::<T>::insert( netuid, cloned_consensus );
+        Incentive::<T>::insert( netuid, cloned_incentive );
+        Dividends::<T>::insert( netuid, cloned_dividends );
+        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
+        ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
+        WeightConsensus::<T>::insert( netuid, cloned_weight_consensus);
 
-        // Sync parameter updates.
         for i in 0..n {
-            Self::set_rank( netuid, i, fixed_proportion_to_u16( ranks[i as usize] ) );
-            Self::set_trust( netuid, i, fixed_proportion_to_u16( trust[i as usize] ) );
-            Self::set_validator_trust( netuid, i, fixed_proportion_to_u16( validator_trust[i as usize] ) );
-            Self::set_consensus( netuid, i, fixed_proportion_to_u16( consensus[i as usize] ) );
-            Self::set_weight_consensus( netuid, i, fixed_proportion_to_u16( weight_consensus[i as usize] ) );
-            Self::set_incentive( netuid, i, fixed_proportion_to_u16( incentive[i as usize] ) );
-            Self::set_dividend( netuid, i, fixed_proportion_to_u16( dividends[i as usize] ) );
-            Self::set_pruning_score( netuid, i, fixed_proportion_to_u16( pruning_scores[i as usize] ) );
-            Self::set_emission( netuid, i, emission[i as usize] );
-            Self::set_validator_permit( netuid, i, new_validator_permits[i as usize] );
-            
             // Set bonds only if uid retains validator permit, otherwise clear bonds.
             if new_validator_permits[i as usize] {
-                Self::set_bonds( netuid, i, (0..n).zip( vec_fixed_proportions_to_u16( ema_bonds[i as usize].clone() ) ).collect() );
+                let new_bonds_row: Vec<(u16,u16)> = (0..n).zip( vec_fixed_proportions_to_u16( ema_bonds[i as usize].clone() ) ).collect();
+                Bonds::<T>::insert( netuid, i, new_bonds_row );
             }
-            else {
-                Self::set_bonds( netuid, i, vec![] );
+            else if validator_permits[ i as usize ] {
+                // Only overwrite the intersection.
+                let new_empty_bonds_row: Vec<(u16,u16)> = vec![];
+                Bonds::<T>::insert( netuid, i, new_empty_bonds_row );
             }
-        }  
+        }
+
+        
 
         // Returning the tao emission here which will be distributed at a higher level.
         emission
@@ -304,7 +316,7 @@ impl<T: Config> Pallet<T> {
         // =======================
 
         // Get current validator permits.
-        let validator_permits: Vec<bool> = Self::get_validator_permits( netuid );
+        let validator_permits: Vec<bool> = Self::get_validator_permit( netuid );
         log::debug!( "validator_permits: {:?}", validator_permits );
 
         // Logical negation of validator_permits.
@@ -471,35 +483,36 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
-        VEmission::<T>::insert( netuid, emission.clone() );
-        VRank::<T>::insert( netuid, ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VTrust::<T>::insert( netuid, trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VConsensus::<T>::insert( netuid, consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VIncentive::<T>::insert( netuid, incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VDividends::<T>::insert( netuid, dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VPruningScores::<T>::insert( netuid, pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VValidatorTrust::<T>::insert( netuid, validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
-        VValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
-        VWeightConsensus::<T>::insert( netuid, validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>() );
+        let cloned_emission: Vec<u64> = emission.clone();
+        let cloned_ranks: Vec<u16> = ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_trust: Vec<u16> = trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        Emission::<T>::insert( netuid, cloned_emission );
+        Rank::<T>::insert( netuid, cloned_ranks);
+        Trust::<T>::insert( netuid, cloned_trust);
+        Consensus::<T>::insert( netuid, cloned_consensus );
+        Incentive::<T>::insert( netuid, cloned_incentive );
+        Dividends::<T>::insert( netuid, cloned_dividends );
+        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
+        ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
+        WeightConsensus::<T>::insert( netuid, cloned_weight_consensus);
 
         for i in 0..n {
-            Self::set_rank( netuid, i, fixed_proportion_to_u16( ranks[i as usize] ) );
-            Self::set_trust( netuid, i, fixed_proportion_to_u16( trust[i as usize] ) );
-            Self::set_validator_trust( netuid, i, fixed_proportion_to_u16( validator_trust[i as usize] ) );
-            Self::set_consensus( netuid, i, fixed_proportion_to_u16( consensus[i as usize] ) );
-            Self::set_weight_consensus( netuid, i, fixed_proportion_to_u16( weight_consensus[i as usize] ) );
-            Self::set_incentive( netuid, i, fixed_proportion_to_u16( incentive[i as usize] ) );
-            Self::set_dividend( netuid, i, fixed_proportion_to_u16( dividends[i as usize] ) );
-            Self::set_pruning_score( netuid, i, fixed_proportion_to_u16( pruning_scores[i as usize] ) );
-            Self::set_emission( netuid, i, emission[i as usize] );
-            Self::set_validator_permit( netuid, i, new_validator_permits[i as usize] );
-
             // Set bonds only if uid retains validator permit, otherwise clear bonds.
             if new_validator_permits[i as usize] {
-                Self::set_bonds( netuid, i, ema_bonds[i as usize].iter().map( |(j, value)| (*j, fixed_proportion_to_u16(*value))).collect())
+                let new_bonds_row: Vec<(u16,u16)> = ema_bonds[i as usize].iter().map( |(j, value)| (*j, fixed_proportion_to_u16(*value))).collect();
+                Bonds::<T>::insert( netuid, i, new_bonds_row );
             }
-            else {
-                Self::set_bonds( netuid, i, vec![] );
+            else if validator_permits[ i as usize ] {
+                // Only overwrite the intersection.
+                let new_empty_bonds_row: Vec<(u16,u16)> = vec![];
+                Bonds::<T>::insert( netuid, i, new_empty_bonds_row );
             }
         }
 
@@ -507,30 +520,8 @@ impl<T: Config> Pallet<T> {
         emission
     }
 
-    pub fn set_rank( netuid:u16, neuron_uid: u16, rank:u16 ) { Rank::<T>::insert( netuid, neuron_uid, rank) }
-    pub fn set_trust( netuid:u16, neuron_uid:u16, trust:u16) { Trust::<T>::insert( netuid, neuron_uid, trust ) }
-    pub fn set_validator_trust( netuid:u16, neuron_uid:u16, validator_trust:u16) { ValidatorTrust::<T>::insert( netuid, neuron_uid, validator_trust ) }
-    pub fn set_consensus( netuid:u16, neuron_uid:u16, consensus:u16) { Consensus::<T>::insert( netuid, neuron_uid, consensus ) }
-    pub fn set_weight_consensus( netuid:u16, neuron_uid:u16, weight_consensus:u16) { WeightConsensus::<T>::insert( netuid, neuron_uid, weight_consensus ) }
-    pub fn set_incentive( netuid:u16, neuron_uid:u16, incentive:u16) { Incentive::<T>::insert( netuid, neuron_uid, incentive ) }
-    pub fn set_dividend( netuid:u16, neuron_uid:u16, dividend:u16) { Dividends::<T>::insert( netuid, neuron_uid, dividend ) }
-    pub fn set_pruning_score( netuid:u16, neuron_uid: u16, pruning_score: u16 ) { PruningScores::<T>::insert(netuid, neuron_uid, pruning_score); }
-    pub fn set_emission( netuid:u16, neuron_uid:u16, emission:u64) { Emission::<T>::insert( netuid, neuron_uid, emission ) }
-    pub fn set_bonds( netuid:u16, neuron_uid:u16, bonds:Vec<(u16,u16)>) { Bonds::<T>::insert( netuid, neuron_uid, bonds ) }
-    pub fn set_validator_permit( netuid:u16, neuron_uid:u16, validator_permit:bool) { ValidatorPermit::<T>::insert( netuid, neuron_uid, validator_permit ) }
-
     pub fn get_float_rho( netuid:u16 ) -> I32F32 { I32F32::from_num( Self::get_rho( netuid ) )  }
     pub fn get_float_kappa( netuid:u16 ) -> I32F32 { I32F32::from_num( Self::get_kappa( netuid )  ) / I32F32::from_num( u16::MAX ) }
-    pub fn get_rank( netuid:u16, neuron_uid: u16) -> u16 {  Rank::<T>::get( netuid,  neuron_uid) }
-    pub fn get_trust( netuid:u16, neuron_uid: u16 ) -> u16 { Trust::<T>::get( netuid, neuron_uid )  }
-    pub fn get_validator_trust( netuid:u16, neuron_uid: u16 ) -> u16 { ValidatorTrust::<T>::get( netuid, neuron_uid ) }
-    pub fn get_consensus( netuid:u16, neuron_uid: u16 ) -> u16 { Consensus::<T>::get( netuid, neuron_uid )  }
-    pub fn get_weight_consensus( netuid:u16, neuron_uid: u16 ) -> u16 { WeightConsensus::<T>::get( netuid, neuron_uid ) }
-    pub fn get_incentive( netuid:u16, neuron_uid: u16 ) -> u16 { Incentive::<T>::get( netuid, neuron_uid )   }
-    pub fn get_dividend( netuid:u16, neuron_uid: u16 ) -> u16 { Dividends::<T>::get( netuid, neuron_uid )  }
-    pub fn get_emission( netuid:u16, neuron_uid: u16 ) -> u64 { Emission::<T>::get( netuid, neuron_uid )  }
-    pub fn get_last_update_for_neuron( netuid:u16, neuron_uid: u16 ) -> u64 { LastUpdate::<T>::get( netuid, neuron_uid ) }
-    pub fn get_validator_permit( netuid: u16, neuron_uid: u16 ) -> bool { ValidatorPermit::<T>::get( netuid, neuron_uid ) }
 
     pub fn get_normalized_stake( netuid:u16 ) -> Vec<I32F32> {
         let n: usize = Self::get_subnetwork_n( netuid ) as usize; 
@@ -552,17 +543,6 @@ impl<T: Config> Pallet<T> {
             }
         }
         block_at_registration
-    }
-
-    pub fn get_last_update( netuid:u16 ) -> Vec<u64> { 
-        let n: usize = Self::get_subnetwork_n( netuid ) as usize;
-        let mut last_update: Vec<u64> = vec![ 0; n ];
-        for neuron_uid in 0..n {
-            if Keys::<T>::contains_key( netuid, neuron_uid as u16 ){
-                last_update[ neuron_uid ] = LastUpdate::<T>::get( netuid, neuron_uid as u16 );
-            }
-        }
-        last_update
     }
 
     pub fn get_weights_sparse( netuid:u16 ) -> Vec<Vec<(u16, I32F32)>> { 
@@ -607,14 +587,5 @@ impl<T: Config> Pallet<T> {
             }
         }
         bonds
-    }
-
-    pub fn get_validator_permits( netuid:u16 ) -> Vec<bool> { 
-        let n: usize = Self::get_subnetwork_n( netuid ) as usize;
-        let mut validator_permits: Vec<bool> = vec![ false; n ];
-        for neuron_uid in 0..n {
-            validator_permits[ neuron_uid ] = Self::get_validator_permit(netuid, neuron_uid as u16);
-        }
-        validator_permits
     }
 }

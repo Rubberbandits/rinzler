@@ -287,16 +287,21 @@ impl<T: Config> Pallet<T> {
         // --- 1. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix( netuid, u32::max_value(), None );
         let _ = Keys::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Rank::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Trust::<T>::clear_prefix( netuid, u32::max_value(), None );
         let _ = Bonds::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Active::<T>::clear_prefix( netuid, u32::max_value(), None );
         let _ = Weights::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Emission::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Incentive::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Consensus::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = Dividends::<T>::clear_prefix( netuid, u32::max_value(), None );
-        let _ = PruningScores::<T>::clear_prefix( netuid, u32::max_value(), None );
+
+        Rank::<T>::remove( netuid );
+        Trust::<T>::remove( netuid );
+        Active::<T>::remove( netuid );
+        Emission::<T>::remove( netuid );
+        Incentive::<T>::remove( netuid );
+        Consensus::<T>::remove( netuid );
+        Dividends::<T>::remove( netuid );
+        PruningScores::<T>::remove( netuid );
+        LastUpdate::<T>::remove( netuid );
+        ValidatorPermit::<T>::remove( netuid );
+        ValidatorTrust::<T>::remove( netuid );
+        WeightConsensus::<T>::remove( netuid );
 
         // --- 2. Erase network parameters.
         Tempo::<T>::remove( netuid );
@@ -313,108 +318,6 @@ impl<T: Config> Pallet<T> {
         ValidatorEpochsPerReset::<T>::remove( netuid );
         ValidatorSequenceLength::<T>::remove( netuid );
         RegistrationsThisInterval::<T>::remove( netuid );
-    }
-
-
-    /// Returns the number of filled slots on a network.
-    ////
-    pub fn get_subnetwork_n( netuid:u16 ) -> u16 { 
-        return SubnetworkN::<T>::get( netuid ) 
-    }
-
-    /// Increments the number of slots used on a network.
-    ///
-    pub fn increment_subnetwork_n( netuid:u16 ) {
-        SubnetworkN::<T>::insert( netuid, SubnetworkN::<T>::take( netuid ) + 1 );
-    }
-
-    /// Decrements the number of used slots on a network.
-    ///
-    pub fn decrement_subnetwork_n( netuid:u16 ) { 
-        let n = SubnetworkN::<T>::get( netuid ); 
-        if n > 0 {
-             SubnetworkN::<T>::insert(netuid, n - 1); 
-        } 
-    }
-
-    /// Returns true if the uid is set on the network.
-    ///
-    pub fn is_uid_exist_on_network(netuid: u16, uid: u16) -> bool {
-        return  Keys::<T>::contains_key(netuid, uid);
-    }
-
-    /// Returns true if the hotkey holds a slot on the network.
-    ///
-    pub fn is_hotkey_registered_on_network( netuid:u16, hotkey: &T::AccountId ) -> bool { 
-        return Uids::<T>::contains_key( netuid, hotkey ) 
-    }
-
-    /// Returs the hotkey under the network uid as a Result. Ok if the uid is taken.
-    ///
-    pub fn get_hotkey_for_net_and_uid( netuid: u16, neuron_uid: u16) ->  Result<T::AccountId, DispatchError> {
-        Keys::<T>::try_get(netuid, neuron_uid).map_err(|_err| Error::<T>::NotRegistered.into()) 
-    }
-
-    /// Returns the uid of the hotkey in the network as a Result. Ok if the hotkey has a slot.
-    ///
-    pub fn get_uid_for_net_and_hotkey( netuid: u16, hotkey: &T::AccountId) -> Result<u16, DispatchError> { 
-        return Uids::<T>::try_get(netuid, &hotkey).map_err(|_err| Error::<T>::NotRegistered.into()) 
-    }
-
-    /// Returns the stake of the uid on network or 0 if it doesnt exist.
-    ///
-    pub fn get_stake_for_uid_and_subnetwork( netuid: u16, neuron_uid: u16) -> u64 { 
-        if Self::is_uid_exist_on_network( netuid, neuron_uid) {
-            return Self::get_total_stake_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap() ) 
-        } else {
-            return 0;
-        }
-    }
-
-    /// Fills a uid on the network.
-    ///
-    pub fn add_subnetwork_account( netuid:u16, uid: u16, hotkey: &T::AccountId ) { 
-        Keys::<T>::insert( netuid, uid, hotkey.clone() ); 
-        Uids::<T>::insert( netuid, hotkey.clone(), uid );
-        Self::increment_subnetwork_n( netuid );
-    }
-
-    /// Removes a uid from the subnetwork.
-    ///
-    pub fn remove_subnetwork_account( netuid:u16, uid: u16 ) { 
-        let hotkey = Keys::<T>::get( netuid, uid );
-        Uids::<T>::remove( netuid, hotkey.clone() );
-        Keys::<T>::remove( netuid, uid ); 
-        Self::decrement_subnetwork_n( netuid );
-    }
-
-    /// Return the total number of subnetworks available on the chain.
-    ///
-    pub fn get_number_of_subnets()-> u16 {
-        let mut number_of_subnets : u16 = 0;
-        for (_, _)  in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter(){
-            number_of_subnets = number_of_subnets + 1;
-        }
-        return number_of_subnets;
-    }
-
-    /// Return a list of all networks a hotkey is registered on.
-    ///
-    pub fn get_registered_networks_for_hotkey( hotkey: &T::AccountId )-> Vec<u16> {
-        let mut all_networks: Vec<u16> = vec![];
-        for ( network, is_registered)  in <IsNetworkMember<T> as IterableStorageDoubleMap< T::AccountId, u16, bool >>::iter_prefix( hotkey ){
-            if is_registered { all_networks.push( network ) }
-        }
-        all_networks
-    }
-
-    /// Return true if a hotkey is registered on any network.
-    ///
-    pub fn is_hotkey_registered_on_any_network( hotkey: &T::AccountId )-> bool {
-        for ( _, is_registered)  in <IsNetworkMember<T> as IterableStorageDoubleMap< T::AccountId, u16, bool >>::iter_prefix( hotkey ){
-            if is_registered { return true }
-        }
-        false
     }
 
 
