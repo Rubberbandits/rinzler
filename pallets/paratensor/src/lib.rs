@@ -14,8 +14,11 @@ use frame_support::{dispatch, ensure, traits::{
 	}
 }};
 
+/// ============================
+///	==== Benchmark Imports =====
+/// ============================
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+mod benchmarks;
 
 /// =========================
 ///	==== Pallet Imports =====
@@ -30,7 +33,10 @@ mod weights;
 mod networks;
 mod serving; 
 mod block_step;
-// RPC impl imports
+
+/// ===========================
+///	==== RPC impl imports =====
+/// ===========================
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
@@ -960,7 +966,7 @@ pub mod pallet {
 			netuid: u16,
 			tempo: u16,
 			modality: u16
-		)-> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::do_add_network(origin, netuid, tempo, modality)
 		}
 
@@ -1173,6 +1179,11 @@ pub mod pallet {
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_benchmark_block_step( origin:OriginFor<T> ) -> DispatchResult {
+			Self::epoch( 11, 100_000_000 );
+			Ok(())
+		} 
 	}	
 
 }

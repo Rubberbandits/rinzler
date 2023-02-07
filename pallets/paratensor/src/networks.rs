@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16, 
         tempo: u16, 
         modality: u16 
-    ) -> dispatch::DispatchResult{
+    ) -> dispatch::DispatchResultWithPostInfo {
 
         // --- 1. Ensure this is a sudo caller.
         ensure_root( origin )?;
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::NetworkAdded( netuid, modality ) );
 
         // --- 7. Ok and return.
-        Ok(())
+        Ok(().into())
     }
 
     /// ---- The implementation for the extrinsic remove_network.
