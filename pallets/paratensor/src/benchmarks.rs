@@ -24,23 +24,19 @@ benchmarks! {
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 
     // Lets create a single network.
+    let n: u16 = 4096;
     let netuid: u16 = 11; //11 is the benchmark network.
-    let tempo: u16 = 0;
+    let tempo: u16 = 1;
     let modality: u16 = 0;
     Paratensor::<T>::do_add_network( caller_origin.clone(), netuid.try_into().unwrap(), tempo.into(), modality.into());
-
-    // Maybe?
-    Paratensor::<T>::set_difficulty( netuid, 1);
+		Paratensor::<T>::set_max_allowed_uids( netuid, n ); 
 
     // Lets fill the network with 100 UIDS and no weights.
     let mut SEED : u32 = 1;
-    for uid in 0..4066 as u16 {
+    for uid in 0..n as u16 {
         let block_number: u64 = Paratensor::<T>::get_current_block_as_u64();
         let hotkey: T::AccountId = account("Alice", 0, SEED);
-        let coldkey: T::AccountId = account("Test", 0, SEED);
-        let start_nonce: u64 = (39420842u64 + 100u64*uid as u64).into();
-        let (nonce, work): (u64, Vec<u8>) = Paratensor::<T>::create_work_for_block_number( uid, block_number, start_nonce );
-        Paratensor::<T>::register( caller_origin.clone(), uid, block_number, nonce, work, hotkey, coldkey );
+        Paratensor::<T>::append_neuron( netuid, &hotkey, block_number );
         SEED = SEED + 1;
     }
 
