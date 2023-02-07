@@ -1181,7 +1181,8 @@ pub mod pallet {
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_benchmark_block_step( origin:OriginFor<T> ) -> DispatchResult {
-			Self::epoch( 11, 100_000_000 );
+			let tao_emission: Vec<u64> = Self::epoch( 11, 1_000_000_000 );
+			//let tao_remainder: u64 = Self::distribute_emission_to_accounts_with_remainder( 11, tao_emission, 1_000_000_000 );
 			Ok(())
 		} 
 	}	
