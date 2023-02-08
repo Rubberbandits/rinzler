@@ -1180,8 +1180,13 @@ pub mod pallet {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_benchmark_block_step( _:OriginFor<T> ) -> DispatchResult {
-			let tao_emission: Vec<u64> = Self::epoch( 11, 1_000_000_000);
+		pub fn sudo_benchmark_block_step_without_distribution( _:OriginFor<T> ) -> DispatchResult {
+			let _: Vec<u64> = Self::epoch( 11, 1_000_000_000 );
+			Ok(())
+		} 
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_benchmark_block_step_with_distribution( _:OriginFor<T> ) -> DispatchResult {
+			let tao_emission: Vec<u64> = Self::epoch( 11, 1_000_000_000 );
 			let _: u64 = Self::distribute_emission_to_accounts_with_remainder( 11, tao_emission, 1_000_000_000);
 			Ok(())
 		} 
