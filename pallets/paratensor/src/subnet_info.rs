@@ -103,11 +103,9 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo>>::new();
-        for netuid_ in 0..max_netuid {
+        for netuid_ in 0..(max_netuid + 1) {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
-            } else {
-                subnets_info.push(None);
             }
         }
 
