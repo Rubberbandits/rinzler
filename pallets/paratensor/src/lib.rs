@@ -443,7 +443,9 @@ pub mod pallet {
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
 	pub(super) type Keys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-	
+	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
+	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64)>, OptionQuery >;
+
 	#[pallet::storage] /// --- DMAP ( netuid ) --> active
 	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid ) --> rank
@@ -456,7 +458,7 @@ pub mod pallet {
 	pub(super) type Incentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
 	pub(super) type Dividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
+	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
 	pub(super) type Emission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
 	#[pallet::storage] /// --- DMAP ( netuid ) --> last_update
 	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
@@ -1180,14 +1182,13 @@ pub mod pallet {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_benchmark_block_step_without_distribution( _:OriginFor<T> ) -> DispatchResult {
-			let _: Vec<u64> = Self::epoch( 11, 1_000_000_000 );
+		pub fn benchmark_epoch( _:OriginFor<T> ) -> DispatchResult {
+			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_benchmark_block_step_with_distribution( _:OriginFor<T> ) -> DispatchResult {
-			let tao_emission: Vec<u64> = Self::epoch( 11, 1_000_000_000 );
-			let _: u64 = Self::distribute_emission_to_accounts_with_remainder( 11, tao_emission, 1_000_000_000);
+		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
+			Self::drain_emission( 11 );
 			Ok(())
 		} 
 	}	

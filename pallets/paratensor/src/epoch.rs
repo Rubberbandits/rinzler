@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
 
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
-    pub fn epoch_dense( netuid: u16, rao_emission: u64 ) -> Vec<u64> {
+    pub fn epoch_dense( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
   
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
@@ -46,9 +46,20 @@ impl<T: Config> Pallet<T> {
         // ===========
         // == Stake ==
         // ===========
+        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
+        for ( uid_i, hotkey ) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( netuid ) {
+            hotkeys.push( (uid_i, hotkey) ); 
+        }
+        log::debug!( "hotkeys: {:?}", hotkeys.clone() );
 
         // Access network stake as normalized vector.
-        let stake: Vec<I32F32> = Self::get_normalized_stake( netuid );
+        let mut stake_64: Vec<I64F64> = vec![ I64F64::from_num(0.0); n as usize ];
+        for (uid_i, hotkey) in hotkeys.iter() {
+            stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+        }
+        inplace_normalize_64( &mut stake_64 );
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
+        log::debug!( "S:\n{:?}\n", stake.clone() );
 
         // Remove inactive stake.
         let mut active_stake: Vec<I32F32> = stake.clone();
@@ -245,10 +256,13 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        
 
-        // Returning the tao emission here which will be distributed at a higher level.
-        emission
+        let mut result: Vec<(T::AccountId, u64)> = vec![]; 
+        for ( uid_i, hotkey ) in hotkeys.iter() {
+            result.push( ( hotkey.clone(), emission[ *uid_i as usize ] ) );
+        }
+        result
+
     }
 
     /// Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and 
@@ -264,7 +278,7 @@ impl<T: Config> Pallet<T> {
     /// 	* 'debug' ( bool ):
     /// 		- Print debugging outputs.
     ///    
-    pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<u64> {
+    pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
         log::debug!( "n: {:?}", n );
@@ -297,8 +311,19 @@ impl<T: Config> Pallet<T> {
         // == Stake ==
         // ===========
 
+        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
+        for ( uid_i, hotkey ) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( netuid ) {
+            hotkeys.push( (uid_i, hotkey) ); 
+        }
+        log::debug!( "hotkeys: {:?}", hotkeys.clone() );
+
         // Access network stake as normalized vector.
-        let stake: Vec<I32F32> = Self::get_normalized_stake( netuid );
+        let mut stake_64: Vec<I64F64> = vec![ I64F64::from_num(0.0); n as usize ];
+        for (uid_i, hotkey) in hotkeys.iter() {
+            stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+        }
+        inplace_normalize_64( &mut stake_64 );
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
         // range: I32F32(0, 1)
         log::debug!( "S: {:?}", stake.clone() );
 
@@ -516,8 +541,11 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Returning the tao emission here which will be distributed at a higher level.
-        emission
+        let mut result: Vec<(T::AccountId, u64)> = vec![]; 
+        for ( uid_i, hotkey ) in hotkeys.iter() {
+            result.push( ( hotkey.clone(), emission[ *uid_i as usize ] ) );
+        }
+        result
     }
 
     pub fn get_float_rho( netuid:u16 ) -> I32F32 { I32F32::from_num( Self::get_rho( netuid ) )  }

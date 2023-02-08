@@ -17,7 +17,7 @@ pub use pallet::*;
 benchmarks! {
    
   // Add individual benchmarks here
-  sudo_benchmark_block_step_without_distribution { 
+  benchmark_epoch { 
 
     // This is a whitelisted caller who can make transaction without weights.
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
@@ -43,7 +43,7 @@ benchmarks! {
   }: _( RawOrigin::Signed( caller.clone() ) )
 
   // Add individual benchmarks here
-  sudo_benchmark_block_step_with_distribution { 
+  benchmark_drain_emission { 
 
     // This is a whitelisted caller who can make transaction without weights.
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
@@ -56,26 +56,19 @@ benchmarks! {
     let modality: u16 = 0;
     Paratensor::<T>::do_add_network( caller_origin.clone(), netuid.try_into().unwrap(), tempo.into(), modality.into());
 		Paratensor::<T>::set_max_allowed_uids( netuid, n ); 
+    Paratensor::<T>::set_tempo( netuid, tempo );
 
     // Lets fill the network with 100 UIDS and no weights.
     let mut SEED : u32 = 1;
+    let mut emission: Vec<(T::AccountId, u64)> = vec![];
     for uid in 0..n as u16 {
         let block_number: u64 = Paratensor::<T>::get_current_block_as_u64();
         let hotkey: T::AccountId = account("Alice", 0, SEED);
         Paratensor::<T>::append_neuron( netuid, &hotkey, block_number );
         SEED = SEED + 1;
+        emission.push( ( hotkey, 1 ) );
     }
+    Paratensor::<T>::sink_emission( netuid, emission );
 
   }: _( RawOrigin::Signed( caller.clone() ) )
-
-  verify {
-     /* optional verification */
-     assert_eq!( Paratensor::<T>::get_blocks_since_last_step(0), 0 );
-  }
 }
-
-/* impl_benchmark_test_suite!(
-    Paratensor,
-    mock::new_test_ext(),
-    mock::Test,
-   ); */

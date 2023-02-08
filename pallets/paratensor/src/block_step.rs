@@ -31,6 +31,49 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn sink_emission( netuid: u16, emission: Vec<(T::AccountId, u64)> )  {
+        let mut emission_to_sink: Vec<(T::AccountId, u64)> = emission.clone();
+        if LoadedEmission::<T>::contains_key( netuid ) {
+            let mut already_sunk_emission: Vec<(T::AccountId, u64)> = LoadedEmission::<T>::get( netuid ).unwrap();
+            emission_to_sink.append( &mut already_sunk_emission );
+        }
+        LoadedEmission::<T>::insert( netuid, emission_to_sink );
+    }
+
+    pub fn drain_emission( netuid: u16 )  {
+        if LoadedEmission::<T>::contains_key( netuid ) {
+            let mut emission_to_sink: Vec<(T::AccountId, u64)> = LoadedEmission::<T>::get( netuid ).unwrap();
+            let tempo: u16 = Tempo::<T>::get( netuid );
+            log::info!( "tempo: {:?}", tempo );
+
+            let block_number: u64 = Self::get_current_block_as_u64();
+            log::info!( "block_number: {:?}", block_number );
+
+            let blocks_to_emit: u64 = (tempo as u64 - ( block_number + 1 ) % ( tempo as u64 + 1 ) ) / 2;
+            log::info!( "blocks_until_next_epoch: {:?}", blocks_to_emit );
+
+            let total_emits_to_drain: u64 = emission_to_sink.len() as u64;
+            log::info!( "total_emits_to_drain: {:?}", total_emits_to_drain );
+
+            let items_required_per_block: u64;
+            if blocks_to_emit == 0 {
+                items_required_per_block  = total_emits_to_drain;
+            } else {
+                items_required_per_block  = total_emits_to_drain / blocks_to_emit;
+            }
+            log::info!( "items_required_per_block: {:?}", items_required_per_block );
+
+            for _ in 0..items_required_per_block { 
+                if emission_to_sink.len() > 0 {
+                    let (hotkey, amount): (T::AccountId, u64) = emission_to_sink.pop().unwrap();
+                    Self::emit_inflation_through_hotkey_account( &hotkey, amount );
+                } else { break; }
+            }
+            LoadedEmission::<T>::insert( netuid, emission_to_sink );
+        }
+    }
+
+
     /// Runs each network epoch function based on tempo.
     ///
     pub fn run_epochs_and_emit() {
@@ -41,9 +84,11 @@ impl<T: Config> Pallet<T> {
         // --- 2. Next we will iterate over all active networks via tempo and distribute the 
         // emission if it is the networks time to run the epoch.
         for ( netuid_i, tempo_i )  in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
+
+            Self::drain_emission( netuid_i );
             
             // --- 3. Check to see if this network has hit its tempo.
-            // NOTE(const): Because we check ( block_number + 1 ) % ( tempo_i as u64 + 1 ) == 0
+            // Ee check ( block_number + 1 ) % ( tempo_i as u64 + 1 ) == 0
             // We begin on the first block.
             // tempo = 0, run every block.
             // tempo = 1, skip 1 block then run
@@ -51,75 +96,34 @@ impl<T: Config> Pallet<T> {
             log::debug!("netuid_i: {:?} tempo_i: {:?} block_number: {:?} ", netuid_i, tempo_i, block_number );
             if ( block_number + 1 ) % ( tempo_i as u64 + 1 ) == 0 {
 
-                // --- 4. We are running this network so we attain the pending emission
-                // and drain it. These tokens will be run through the mechanism and potentially 
-                // create a remainder.
+                // --- 4. We attain the pending emission and drain it. 
                 let emission_to_drain:u64 = PendingEmission::<T>::get( netuid_i );
+                PendingEmission::<T>::insert( netuid_i, 0 );
 
-                // --- 5. Run the mechanism for this network updating consensus parameters
-                // and returns the tao_emission, a positive valued u64. The sum of these value 
-                // should equal pending_emission.
-                let tao_emission: Vec<u64> = Self::epoch( netuid_i, emission_to_drain );
+                // --- 5. Run the epoch mechanism and return the tao_emission which will later be sunk.
+                let tao_emission: Vec<(T::AccountId, u64)> = Self::epoch( netuid_i, emission_to_drain );
 
-                // --- 6. We now distribute the tao emission onto the subnetwork hotkey staking accounts.
-                // The remainder will be added back onto the pending emission for this network
-                let tao_remainder: u64 = Self::distribute_emission_to_accounts_with_remainder( netuid_i, tao_emission, emission_to_drain );
-
-                // --- 7. Add the remainder back to the pending.
-                PendingEmission::<T>::insert( netuid_i, tao_remainder );
+                // --- 6. Check the total emission for sanity. If we are not emitting more than
+                // we are allowed, we are pushing it to the Emission storage to be sunk next step.
+                let emission_sum: u128 = tao_emission.iter().map( |(h,e)| *e as u128 ).sum();
+                if emission_sum <= emission_to_drain as u128 {
+                    Self::sink_emission( netuid_i, tao_emission );
+                }
 
                 // --- 8. Drain blocks and set epoch counters.
                 Self::set_blocks_since_last_step( netuid_i, 0 );
                 Self::set_last_mechanism_step_block( netuid_i, block_number );
-                log::debug!("netuid_i: {:?} emission_to_drain: {:?} tao_remainder: {:?} ", netuid_i, emission_to_drain, tao_remainder );
-            } 
+                log::debug!("netuid_i: {:?} emission_to_drain: {:?} ", netuid_i, emission_to_drain );
 
-            // --- 9. Increase blocks since last step.
-            Self::set_blocks_since_last_step( netuid_i, Self::get_blocks_since_last_step( netuid_i ) + 1 );
+            } else {
+
+                // --- 9. No epoch, then increase blocks since last step.
+                Self::set_blocks_since_last_step( netuid_i, Self::get_blocks_since_last_step( netuid_i ) + 1 );
+            }
+
         }
     }
 
-    /// Distributes pending emission onto each network based on the emission vector.
-    ///
-    /// # Args:
-    /// 	* 'netuid': ( u16 ):
-    ///         - The network to distribute the emission onto.
-    /// 		
-    /// 	* 'tao_emission': ( Vec<u64> ):
-    ///         - The emission to distribute onto the accounts.
-    ///
-    /// 	* 'pending_emission' (u16):
-    /// 		- The total allowed emission onto these accounts.
-    ///    
-    pub fn distribute_emission_to_accounts_with_remainder( netuid: u16, tao_emission: Vec<u64>, allowed_pending: u64) -> u64 {
-        let len_tao_emission: u16 = tao_emission.len() as u16;
-
-        // --- 1. If the network is empty return all the pending.
-        if 0 == Self::get_subnetwork_n( netuid ) { return allowed_pending; }
-
-        // --- 2. Check that the tao emission has an entry for each key. 
-        // Otherwise return all pending emission.
-        if len_tao_emission != Self::get_subnetwork_n( netuid ) { return allowed_pending; }
-
-        // --- 3. Check that the sum of the tao emission is not greater than the 
-        // allowed pending. 
-        // NOTE(const): We are performing a sum on u128 to ensure we dont overflow.
-        let emission_sum: u128 = tao_emission.iter().map( |x| *x as u128 ).sum();
-        if emission_sum > allowed_pending as u128 { return allowed_pending; }
-
-        // --- 4. If the sum is less than the allowed pending we can return this as the 
-        // remainder. NOTE(const): this must be on the u64 range because allowed >= sum and allowed < u64::MAX.
-        let remainder: u64 = allowed_pending - emission_sum as u64;
-
-        // --- 5. Now lets distribute the tao emission onto the keys.
-        for (uid_i, hotkey_i) in <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid) { 
-            // Check uids.
-            let stake_to_add: u64 = tao_emission[ uid_i as usize ];
-            Self::emit_inflation_through_hotkey_account( &hotkey_i, stake_to_add );
-        }
-
-        remainder
-    }
 
     /// Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
     /// is distributed onto the accounts in proportion of the stake delegated minus the take. This function

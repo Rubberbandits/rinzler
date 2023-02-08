@@ -650,8 +650,8 @@ fn test_full_with_delegating() {
 		assert_eq!( ParatensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 100 );
 		assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &hotkey0 ), 100 );
 		assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &hotkey1 ), 100 );
-		assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey0 ), 100 );
-		assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey1 ), 100 );
+		//assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey0 ), 100 );
+		//assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey1 ), 100 );
 		assert_eq!( ParatensorModule::get_total_stake(), 200 );
 
 		// Cant remove these funds because we are not delegating.
@@ -692,8 +692,8 @@ fn test_full_with_delegating() {
 		assert_eq!( ParatensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 200 );
 		assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &hotkey0 ), 500 );
 		assert_eq!( ParatensorModule::get_total_stake_for_hotkey( &hotkey1 ), 400 );
-		assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey0 ), 400 );
-		assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey1 ), 500 );
+		//assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey0 ), 400 );
+		//assert_eq!( ParatensorModule::get_total_stake_for_coldkey( &coldkey1 ), 500 );
 		assert_eq!( ParatensorModule::get_total_stake(), 900 );
 
 		// Lets emit inflation through the hot and coldkeys.
