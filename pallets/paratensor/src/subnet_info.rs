@@ -28,7 +28,7 @@ pub struct SubnetInfo {
     blocks_since_last_step: u64,
     tempo: u16,
     network_modality: u16,
-    network_connect: Vec<u16>,
+    network_connect: Vec<[u16; 2]>,
     emission_values: u64
 }
 
@@ -59,10 +59,10 @@ impl<T: Config> Pallet<T> {
         let emission_values = <EmissionValues <T>>::get(netuid);
 
 
-        let mut network_connect: Vec<u16> = Vec::<u16>::new();
+        let mut network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
 
         for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-            network_connect.push(con_req);
+            network_connect.push([_netuid_, con_req]);
         }
 
         return Some(SubnetInfo {
@@ -103,11 +103,9 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo>>::new();
-        for netuid_ in 0..max_netuid {
+        for netuid_ in 0..(max_netuid + 1) {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
-            } else {
-                subnets_info.push(None);
             }
         }
 
