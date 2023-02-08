@@ -44,3 +44,9 @@ recipient = 1000
 maxCapacity = 8
 maxMessageSize = 8192
 ```
+
+## Polkadot.js Frontend
+
+Using the chain frontend hosted at polkadot.js.org, you can connect to your local zombienet. Ports change every time you launch zombienet, so you'll have to use the port that the collator section of zombienet's printout. Zombienet provides a handy direct link in the node information output when all validators/collators have finished booting. Example:
+
+`https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:34083#/explorer`
