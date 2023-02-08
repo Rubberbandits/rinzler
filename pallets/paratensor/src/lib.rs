@@ -1179,6 +1179,21 @@ pub mod pallet {
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
+
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			Ok(())
+		}
+
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn benchmark_epoch( _:OriginFor<T> ) -> DispatchResult {
 			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
