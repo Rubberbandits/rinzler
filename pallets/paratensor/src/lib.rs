@@ -583,10 +583,8 @@ pub mod pallet {
 		/// # Args:
 		/// 	* 'n': (T::BlockNumber):
 		/// 		- The number of the block we are initializing.
-		fn on_idle( _block_number: BlockNumberFor<T>, _remaining_weight: Weight ) -> Weight {
-			log::info!("On_idle Called block {:?} Remaining Weight: {:?} ) ", _block_number, _remaining_weight );
+		fn on_finalize( _block_number: BlockNumberFor<T> ) {
 			Self::block_step();
-			T::DbWeight::get().writes(0)
 		}
 	}
 
