@@ -41,12 +41,9 @@ cd "${DIR}/polkadot"
 # Build relay chain
 cargo build --release
 
-cd ../
+cd ../../ # Back to main directory
 
-# Download and build rinzler
-mkdir "rinzler"
-git clone https://github.com/opentensor/rinzler.git "rinzler"
-cd "rinzler"
+# Build rinzler
 cargo build --release
 
 echo "*** Setup complete, use zombienet.sh in scripts to start a local network."
