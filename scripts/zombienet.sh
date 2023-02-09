@@ -6,4 +6,4 @@ echo "*** Starting zombienet..."
 cd "../zombienet"
 
 ZOMB_WS_PORT=12345
-./zombienet spawn --provider native ../scripts/rinzler-dev-config.toml
+./zombienet spawn --provider native ../scripts/rinzler-zombienet-config.toml
