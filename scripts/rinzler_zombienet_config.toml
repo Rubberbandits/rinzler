@@ -1,6 +1,6 @@
 [relaychain]
-default_command = "./bin/polkadot-v0.9.32"
-default_args = [ "-lparachain=debug" ]
+default_command = "./polkadot/target/release/polkadot-v0.9.32"
+default_args = [ "-lparachain=debug" ]    
 
 chain = "rococo-local"
   [[relaychain.nodes]]
@@ -17,5 +17,5 @@ cumulus_based = true
 chain = "dev"
 
   [parachains.collator]
-  name = "rinzler-collator-01"
-  command = "./paratensor"
+  name = "parachain-A-1000-collator-01"
+  command = "../target/release/paratensor"
