@@ -8,123 +8,115 @@ use frame_support::storage::IterableStorageDoubleMap;
 impl<T: Config> Pallet<T> { 
 
     pub fn block_step() {
-        log::debug!("block_step for block: {:?} ", Self::get_current_block_as_u64() );
+        let block_number: u64 = Self::get_current_block_as_u64();
+        log::debug!("block_step for block: {:?} ", block_number );
         // --- 1. Adjust difficulties.
 		Self::adjust_registration_difficulties( );
-		// --- 2. Distribute emission.
-		Self::distribute_pending_emission_onto_networks( );
-        // --- 3. Run epochs.
-        Self::run_epochs_and_emit( );
+        // --- 2. Drains emission tuples ( hotkey, amount ).
+        Self::drain_emission( block_number );
+        // --- 3. Generates emission tuples from epoch functions.
+		Self::generate_emission( block_number );
     }
 
-    /// Distributes pending emission onto each network based on the emission vector.
+    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
+    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
     ///
-    pub fn distribute_pending_emission_onto_networks( ) {
-        // --- 1. We iterate across each network and add the emission value onto the network's pending emission.
-        // The pending emission will acrue until this network runs its epoch function.
-        for (netuid_i, _) in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter(){ 
-            // --- 2. Get the emission value for this network which is a value < block emission
-            // and all emission values sum to block_emission() 
-            let new_emission = EmissionValues::<T>::get( netuid_i );
-            PendingEmission::<T>::mutate(netuid_i, |val| *val += new_emission);
-            log::debug!("netuid_i: {:?} new_emission: +{:?} ", netuid_i, new_emission );
-        }
+    pub fn blocks_until_next_epoch( netuid: u16, tempo: u16, block_number: u64 ) -> u64 {
+        if tempo == 0 { return 1000 } // Special case: tempo = 0, the network never runs.
+        // tempo | netuid | # first epoch block
+        //   1        0               0
+        //   1        1               1
+        //   2        0               1
+        //   2        1               0
+        //   100      0              99
+        //   100      1              98
+        return tempo as u64 - ( block_number + netuid as u64 + 1 ) % ( tempo as u64 + 1 )
     }
 
-    pub fn sink_emission( netuid: u16, emission: Vec<(T::AccountId, u64)> )  {
-        let mut emission_to_sink: Vec<(T::AccountId, u64)> = emission.clone();
-        if LoadedEmission::<T>::contains_key( netuid ) {
-            let mut already_sunk_emission: Vec<(T::AccountId, u64)> = LoadedEmission::<T>::get( netuid ).unwrap();
-            emission_to_sink.append( &mut already_sunk_emission );
-        }
-        LoadedEmission::<T>::insert( netuid, emission_to_sink );
-    }
-
-    pub fn drain_emission( netuid: u16 )  {
-        if LoadedEmission::<T>::contains_key( netuid ) {
-            let mut emission_to_sink: Vec<(T::AccountId, u64)> = LoadedEmission::<T>::get( netuid ).unwrap();
-            let tempo: u16 = Tempo::<T>::get( netuid );
-            log::info!( "tempo: {:?}", tempo );
-
-            let block_number: u64 = Self::get_current_block_as_u64();
-            log::info!( "block_number: {:?}", block_number );
-
-            let blocks_to_emit: u64 = (tempo as u64 - ( block_number + 1 ) % ( tempo as u64 + 1 ) ) / 2;
-            log::info!( "blocks_until_next_epoch: {:?}", blocks_to_emit );
-
-            let total_emits_to_drain: u64 = emission_to_sink.len() as u64;
-            log::info!( "total_emits_to_drain: {:?}", total_emits_to_drain );
-
-            let items_required_per_block: u64;
-            if blocks_to_emit == 0 {
-                items_required_per_block  = total_emits_to_drain;
-            } else {
-                items_required_per_block  = total_emits_to_drain / blocks_to_emit;
-            }
-            log::info!( "items_required_per_block: {:?}", items_required_per_block );
-
-            for _ in 0..items_required_per_block { 
-                if emission_to_sink.len() > 0 {
-                    let (hotkey, amount): (T::AccountId, u64) = emission_to_sink.pop().unwrap();
-                    Self::emit_inflation_through_hotkey_account( &hotkey, amount );
-                } else { break; }
-            }
-            LoadedEmission::<T>::insert( netuid, emission_to_sink );
-        }
-    }
-
-
-    /// Runs each network epoch function based on tempo.
+ 
+    /// Helper function returns the number of tuples to drain on a particular step based on
+    /// the remaining tuples to sink and the block number
     ///
-    pub fn run_epochs_and_emit() {
-        // --- 1. First get the current block number which will be used to determine which networks 
-        // we will be draining of pending emission.
-        let block_number = Self::get_current_block_as_u64();  
-
-        // --- 2. Next we will iterate over all active networks via tempo and distribute the 
-        // emission if it is the networks time to run the epoch.
-        for ( netuid_i, tempo_i )  in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-
-            Self::drain_emission( netuid_i );
-            
-            // --- 3. Check to see if this network has hit its tempo.
-            // Ee check ( block_number + 1 ) % ( tempo_i as u64 + 1 ) == 0
-            // We begin on the first block.
-            // tempo = 0, run every block.
-            // tempo = 1, skip 1 block then run
-            // tempo = 2, skip 2 blocks then run ...
-            log::debug!("netuid_i: {:?} tempo_i: {:?} block_number: {:?} ", netuid_i, tempo_i, block_number );
-            if ( block_number + 1 ) % ( tempo_i as u64 + 1 ) == 0 {
-
-                // --- 4. We attain the pending emission and drain it. 
-                let emission_to_drain:u64 = PendingEmission::<T>::get( netuid_i );
-                PendingEmission::<T>::insert( netuid_i, 0 );
-
-                // --- 5. Run the epoch mechanism and return the tao_emission which will later be sunk.
-                let tao_emission: Vec<(T::AccountId, u64)> = Self::epoch( netuid_i, emission_to_drain );
-
-                // --- 6. Check the total emission for sanity. If we are not emitting more than
-                // we are allowed, we are pushing it to the Emission storage to be sunk next step.
-                let emission_sum: u128 = tao_emission.iter().map( |(h,e)| *e as u128 ).sum();
-                if emission_sum <= emission_to_drain as u128 {
-                    Self::sink_emission( netuid_i, tao_emission );
-                }
-
-                // --- 8. Drain blocks and set epoch counters.
-                Self::set_blocks_since_last_step( netuid_i, 0 );
-                Self::set_last_mechanism_step_block( netuid_i, block_number );
-                log::debug!("netuid_i: {:?} emission_to_drain: {:?} ", netuid_i, emission_to_drain );
-
-            } else {
-
-                // --- 9. No epoch, then increase blocks since last step.
-                Self::set_blocks_since_last_step( netuid_i, Self::get_blocks_since_last_step( netuid_i ) + 1 );
-            }
-
+    pub fn tuples_to_drain_this_block( netuid: u16, tempo: u16, block_number: u64, n_remaining: usize ) -> usize {
+        let blocks_until_epoch: u64 = Self::blocks_until_next_epoch( netuid, tempo, block_number );  
+        if blocks_until_epoch / 2 == 0 { return n_remaining } // drain all.
+        if tempo / 2 == 0 { return n_remaining } // drain all
+        if n_remaining == 0 { return 0 } // nothing to drain at all.
+        // Else return enough tuples to drain all within half the epoch length.
+        let to_sink_via_tempo: usize = n_remaining / (tempo as usize / 2);
+        let to_sink_via_blocks_until_epoch: usize = n_remaining / (blocks_until_epoch as usize / 2);
+        if to_sink_via_tempo > to_sink_via_blocks_until_epoch {
+            return to_sink_via_tempo;   
+        } else {
+            return to_sink_via_blocks_until_epoch;
         }
     }
 
+    pub fn has_loaded_emission_tuples( netuid: u16 ) -> bool { LoadedEmission::<T>::contains_key( netuid ) }
+    pub fn get_loaded_emission_tuples( netuid: u16 ) -> Vec<(T::AccountId, u64)> { LoadedEmission::<T>::get( netuid ).unwrap() }
 
+    /// Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
+    /// and distributes small chunks of them at a time.
+    ///
+    pub fn drain_emission( _: u64 ) {
+        // --- 1. We iterate across each network.
+        for ( netuid, _ ) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
+            if !Self::has_loaded_emission_tuples( netuid ) { continue } // There are no tuples to emit.
+            let tuples_to_drain: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+            for (hotkey, amount) in tuples_to_drain.iter() {                 
+                Self::emit_inflation_through_hotkey_account( &hotkey, *amount );
+            }            
+            LoadedEmission::<T>::remove( netuid );
+        }
+    }
+
+    /// Iterates through networks queues more emission onto their pending storage.
+    /// If a network has no blocks left until tempo, we run the epoch function and generate
+    /// more token emission tuples for later draining onto accounts.
+    ///
+    pub fn generate_emission( block_number: u64 ) {
+
+        // --- 1. Iterate through network ids.
+        for ( netuid, tempo )  in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
+
+            // --- 2. Queue the emission due to this network.
+            let new_queued_emission = EmissionValues::<T>::get( netuid );
+            PendingEmission::<T>::mutate( netuid, | queued | *queued += new_queued_emission );
+            log::debug!("netuid_i: {:?} queued_emission: +{:?} ", netuid, new_queued_emission );
+
+            // --- 3. Check to see if this network has reached tempo.
+            if Self::blocks_until_next_epoch( netuid, tempo, block_number ) != 0 {
+                // --- 3.1 No epoch, increase blocks since last step and continue,
+                Self::set_blocks_since_last_step( netuid, Self::get_blocks_since_last_step( netuid ) + 1 );
+                continue;
+            }
+
+            // --- 4 This network is at tempo and we are running its epoch.
+            // First frain the queued emission.
+            let emission_to_drain:u64 = PendingEmission::<T>::get( netuid );
+            PendingEmission::<T>::insert( netuid, 0 );
+
+            // --- 5. Run the epoch mechanism and return emission tuples for hotkeys in the network.
+            let emission_tuples_this_block: Vec<(T::AccountId, u64)> = Self::epoch( netuid, emission_to_drain );
+                
+            // --- 6. Check that the emission does not exceed the allowed total.
+            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(h,e)| *e as u128 ).sum();
+            if emission_sum > emission_to_drain as u128 { continue } // Saftey check.
+
+            // --- 7. Sink the emission tuples onto the already loaded.
+            let mut concat_emission_tuples: Vec<(T::AccountId, u64)> = emission_tuples_this_block.clone();
+            if Self::has_loaded_emission_tuples( netuid ) {
+                // 7.a We already have loaded emission tuples, so we concat the new ones.
+                let mut current_emission_tuples: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+                concat_emission_tuples.append( &mut current_emission_tuples );
+            } 
+            LoadedEmission::<T>::insert( netuid, concat_emission_tuples );
+
+            // --- 8 Set counters.
+            Self::set_blocks_since_last_step( netuid, 0 );
+            Self::set_last_mechanism_step_block( netuid, block_number );        
+        }
+    }
     /// Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
     /// is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     /// is called after an epoch to distribute the newly minted stake according to delegation.
@@ -158,6 +150,28 @@ impl<T: Config> Pallet<T> {
         // the delegate and effect calculation in 4.
         Self::increase_stake_on_hotkey_account( &hotkey, delegate_take );
         log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey,delegate_take );
+    }
+
+    /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
+    /// This function should be called rather than set_stake under account.
+    /// 
+    pub fn block_step_increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
+        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( increment ) );
+
+    }
+
+    /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
+    ///
+    pub fn block_step_decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
+        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( decrement ) );
     }
 
     /// Returns emission awarded to a hotkey as a function of its proportion of the total stake.

@@ -20,3 +20,17 @@ parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
 
 🧙 Learn about how to use this template and run your own parachain testnet for it in the
 [Devhub Cumulus Tutorial](https://docs.substrate.io/tutorials/v3/cumulus/start-relay/).
+
+
+## Running benchmarks with build 
+cargo build --features runtime-benchmarks ; ./target/debug/paratensor benchmark pallet --pallet pallet_paratensor --extrinsic "*" --output ~/Desktop/out.txt --execution wasm
+
+## Running tests with debug
+SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test your_test_name -- --nocapture
+
+## Running a local ZombieNet.
+Step 1: move tar into opentensor/rinzler (get the zombie net tar from someone.)
+Step 2: cd into opentensor/rinzler ( cd into this repo. )
+Step 3: tar -xzvf scripts.tar.gz scripts ( untar the script here.)
+Step 4: sudo chmod a+x ./scripts/zombienet/OSX/zombienet (Set the permission on the binery, may need to switch from OSX to linux.)
+Step 5: ./scripts/zombienet/OSX/zombienet spawn -p native ./scripts/zombienet/zombienet.toml (run the script in that directory like this)

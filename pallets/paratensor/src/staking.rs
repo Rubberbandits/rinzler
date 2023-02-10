@@ -290,18 +290,21 @@ impl<T: Config> Pallet<T> {
     /// 
     pub fn increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
         // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
-        TotalHotkeyStake::<T>::mutate( hotkey, | old | old.saturating_add( increment ) );
-        Stake::<T>::mutate( hotkey, coldkey, | old | old.saturating_add( increment ) );
-        TotalStake::<T>::mutate( | val | val.saturating_add( increment ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( increment ) );
+
     }
 
     /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
     ///
     pub fn decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
         // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
-        TotalHotkeyStake::<T>::mutate( hotkey, | old | old.saturating_sub( decrement ) );
-        Stake::<T>::mutate( hotkey, coldkey, | old | old.saturating_sub( decrement ) );
-        TotalStake::<T>::mutate( | val | val.saturating_sub( decrement ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( decrement ) );
     }
 
 	pub fn u64_to_balance( input: u64 ) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance> { input.try_into().ok() }

@@ -583,8 +583,11 @@ pub mod pallet {
 		/// # Args:
 		/// 	* 'n': (T::BlockNumber):
 		/// 		- The number of the block we are initializing.
-		fn on_finalize( _block_number: BlockNumberFor<T> ) {
+		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
 			Self::block_step();
+			return Weight::from_ref_time(794_886_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(8204 as u64))
+			.saturating_add(T::DbWeight::get().writes(110 as u64));
 		}
 	}
 
@@ -1180,6 +1183,8 @@ pub mod pallet {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 
+
+		/// Benchmarking functions.
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
@@ -1195,7 +1200,42 @@ pub mod pallet {
 		}
 
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn benchmark_epoch( _:OriginFor<T> ) -> DispatchResult {
+		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			Self::set_max_allowed_validators( netuid, n_vals );
+			Self::set_min_allowed_weights( netuid, n_weights );
+			Self::set_emission_for_network( netuid, 1_000_000_000 );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::increase_stake_on_coldkey_hotkey_account( &hotkey, &hotkey, 1_000_000_000 );
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			for uid in 0..n {
+				let uids: Vec<u16> = (0..n_weights).collect();
+				let values: Vec<u16> = vec![1; n_weights as usize];
+				let normalized_values = Self::normalize_weights( values );
+				let mut zipped_weights: Vec<( u16, u16 )> = vec![];
+				for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
+				if uid < n_vals {
+					Weights::<T>::insert( netuid, uid, zipped_weights );
+				} else {
+					break;
+				}
+			}
+			Ok(())
+		}
+
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
+			Self::epoch( 11, 1_000_000_000 );
+			Ok(())
+		} 
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
 			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 

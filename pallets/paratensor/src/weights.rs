@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Implace normalizes the passed positive integer weights so that they sum to u16 max value.
-    fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
+    pub fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
         let sum: u64 = weights.iter().map(|x| *x as u64).sum();
         if sum == 0 { return weights; }
         weights.iter_mut().for_each(|x| { *x = (*x as u64 * u16::max_value() as u64 / sum) as u16; });

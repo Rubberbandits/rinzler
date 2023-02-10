@@ -541,6 +541,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // Emission tuples ( hotkeys, u64 emission)
         let mut result: Vec<(T::AccountId, u64)> = vec![]; 
         for ( uid_i, hotkey ) in hotkeys.iter() {
             result.push( ( hotkey.clone(), emission[ *uid_i as usize ] ) );

@@ -569,6 +569,14 @@ fn test_has_enough_stake_no() {
 	});
 }
 
+#[test]
+fn test_non_existent_account() {
+	new_test_ext().execute_with(|| {
+		ParatensorModule::increase_stake_on_coldkey_hotkey_account( &0, &0, 10 );
+		assert_eq!( ParatensorModule::get_stake_for_coldkey_and_hotkey( &0, &0 ), 10 );
+	});
+}
+
 /************************************************************
 	staking::delegating
 ************************************************************/
