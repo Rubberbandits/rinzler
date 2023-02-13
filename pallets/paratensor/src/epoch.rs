@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
   
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
-        log::debug!( "n:\n{:?}\n", n );
+        log::trace!( "n:\n{:?}\n", n );
 
         // ======================
         // == Active & updated ==
@@ -21,27 +21,27 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::debug!( "current_block:\n{:?}\n", current_block );
+        log::trace!( "current_block:\n{:?}\n", current_block );
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff( netuid ) as u64;
-        log::debug!( "activity_cutoff:\n{:?}\n", activity_cutoff );
+        log::trace!( "activity_cutoff:\n{:?}\n", activity_cutoff );
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update( netuid );
-        log::debug!( "Last update:\n{:?}\n", last_update.clone() );
+        log::trace!( "Last update:\n{:?}\n", last_update.clone() );
 
         // Inactive mask.
         let inactive: Vec<bool> = last_update.iter().map(| updated | *updated + activity_cutoff < current_block ).collect();
-        log::debug!( "Inactive:\n{:?}\n", inactive.clone() );
+        log::trace!( "Inactive:\n{:?}\n", inactive.clone() );
 
         // Block at registration vector (block when each neuron was most recently registered).
         let block_at_registration: Vec<u64> = Self::get_block_at_registration( netuid );
-        log::debug!( "Block at registration:\n{:?}\n", block_at_registration.clone() );
+        log::trace!( "Block at registration:\n{:?}\n", block_at_registration.clone() );
 
         // Outdated matrix, updated_ij=True if i has last updated (weights) after j has last registered.
         let outdated: Vec<Vec<bool>> = last_update.iter().map(| updated | block_at_registration.iter().map(| registered | updated <= registered ).collect() ).collect();
-        log::debug!( "Outdated:\n{:?}\n", outdated.clone() );
+        log::trace!( "Outdated:\n{:?}\n", outdated.clone() );
 
         // ===========
         // == Stake ==
@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
         for ( uid_i, hotkey ) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( netuid ) {
             hotkeys.push( (uid_i, hotkey) ); 
         }
-        log::debug!( "hotkeys: {:?}", hotkeys.clone() );
+        log::trace!( "hotkeys: {:?}", hotkeys.clone() );
 
         // Access network stake as normalized vector.
         let mut stake_64: Vec<I64F64> = vec![ I64F64::from_num(0.0); n as usize ];
@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
         }
         inplace_normalize_64( &mut stake_64 );
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
-        log::debug!( "S:\n{:?}\n", stake.clone() );
+        log::trace!( "S:\n{:?}\n", stake.clone() );
 
         // Remove inactive stake.
         let mut active_stake: Vec<I32F32> = stake.clone();
@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize( &mut active_stake );
-        log::debug!( "S:\n{:?}\n", active_stake.clone() );
+        log::trace!( "S:\n{:?}\n", active_stake.clone() );
 
         // =======================
         // == Validator permits ==
@@ -75,18 +75,18 @@ impl<T: Config> Pallet<T> {
 
         // Get validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit( netuid );
-        log::debug!( "validator_permits: {:?}", validator_permits );
+        log::trace!( "validator_permits: {:?}", validator_permits );
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators( netuid );
-        log::debug!( "max_allowed_validators: {:?}", max_allowed_validators );
+        log::trace!( "max_allowed_validators: {:?}", max_allowed_validators );
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk( &stake, max_allowed_validators as usize );
-        log::debug!( "new_validator_permits: {:?}", new_validator_permits );
+        log::trace!( "new_validator_permits: {:?}", new_validator_permits );
 
         // =============
         // == Weights ==
@@ -94,23 +94,23 @@ impl<T: Config> Pallet<T> {
 
         // Access network weights row normalized.
         let mut weights: Vec<Vec<I32F32>> = Self::get_weights( netuid );
-        log::debug!( "W:\n{:?}\n", weights.clone() );
+        log::trace!( "W:\n{:?}\n", weights.clone() );
 
         // Mask weights that are not from permitted validators.
         inplace_mask_rows( &validator_forbids, &mut weights );
-        // log::debug!( "W (permit): {:?}", weights.clone() );
+        // log::trace!( "W (permit): {:?}", weights.clone() );
 
         // Remove self-weight by masking diagonal.
         inplace_mask_diag( &mut weights );
-        // log::debug!( "W (permit+diag):\n{:?}\n", weights.clone() );
+        // log::trace!( "W (permit+diag):\n{:?}\n", weights.clone() );
 
         // Mask outdated weights: remove weights referring to deregistered neurons.
         inplace_mask_matrix( &outdated, &mut weights );
-        // log::debug!( "W (permit+diag+outdate):\n{:?}\n", weights.clone() );
+        // log::trace!( "W (permit+diag+outdate):\n{:?}\n", weights.clone() );
 
         // Normalize remaining weights.
         inplace_row_normalize( &mut weights );
-        // log::debug!( "W (mask+norm):\n{:?}\n", weights.clone() );
+        // log::trace!( "W (mask+norm):\n{:?}\n", weights.clone() );
 
         // ==========================================
         // == Weight consensus and Validator trust ==
@@ -142,29 +142,29 @@ impl<T: Config> Pallet<T> {
         // Compute ranks: r_j = SUM(i) w_ij * s_i
         let mut ranks: Vec<I32F32> = matmul( &weights, &active_stake );
         inplace_normalize( &mut ranks );
-        log::debug!( "R:\n{:?}\n", ranks.clone() );
+        log::trace!( "R:\n{:?}\n", ranks.clone() );
 
         // Compute thresholded weights.
         let upper: I32F32 = I32F32::from_num( 1.0 );
         let lower: I32F32 = I32F32::from_num( 0.0 );
         let threshold: I32F32 = I32F32::from_num( 0.1 ) / I32F32::from_num( n + 1 );
         let clipped_weights: Vec<Vec<I32F32>> = clip( &weights, threshold, upper, lower );
-        // log::debug!( "tW:\n{:?}\n", clipped_weights.clone() );
+        // log::trace!( "tW:\n{:?}\n", clipped_weights.clone() );
 
         // Compute trust scores: t_j = SUM(i) w_ij * s_i
         let trust: Vec<I32F32> = matmul( &clipped_weights, &active_stake );
-        log::debug!( "T:\n{:?}\n", trust.clone() );
+        log::trace!( "T:\n{:?}\n", trust.clone() );
 
         // Compute consensus.
         let rho: I32F32 = Self::get_float_rho( netuid );
         let kappa: I32F32 = Self::get_float_kappa( netuid );
         let consensus: Vec<I32F32> = trust.iter().map(|t: &I32F32| sigmoid_safe(*t, rho, kappa)).collect();
-        log::debug!( "C:\n{:?}\n", consensus.clone() );
+        log::trace!( "C:\n{:?}\n", consensus.clone() );
 
         // Compute incentive.
         let mut incentive: Vec<I32F32> = ranks.iter().zip( consensus.clone() ).map( |(ri, ci)| ri * ci ).collect();
         inplace_normalize( &mut incentive );
-        log::debug!( "I:\n{:?}\n", incentive.clone() );
+        log::trace!( "I:\n{:?}\n", incentive.clone() );
 
         // =========================
         // == Bonds and Dividends ==
@@ -174,23 +174,23 @@ impl<T: Config> Pallet<T> {
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds( netuid );
         inplace_mask_matrix( &outdated, &mut bonds );  // mask outdated bonds
         inplace_col_normalize( &mut bonds ); // sum_i b_ij = 1
-        // log::debug!( "B:\n{:?}\n", bonds.clone() );        
+        // log::trace!( "B:\n{:?}\n", bonds.clone() );        
 
         // Compute bonds delta column normalized.
         let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard( &weights, &active_stake ); // ΔB = W◦S
         inplace_col_normalize( &mut bonds_delta ); // sum_i b_ij = 1
-        // log::debug!( "ΔB:\n{:?}\n", bonds_delta.clone() );
+        // log::trace!( "ΔB:\n{:?}\n", bonds_delta.clone() );
     
         // Compute bonds moving average.
         let alpha: I32F32 = I32F32::from_num( 0.1 );
         let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );
         inplace_col_normalize( &mut ema_bonds ); // sum_i b_ij = 1
-        // log::debug!( "emaB:\n{:?}\n", ema_bonds.clone() );
+        // log::trace!( "emaB:\n{:?}\n", ema_bonds.clone() );
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j
         let mut dividends: Vec<I32F32> = matmul_transpose( &ema_bonds, &incentive );
         inplace_normalize( &mut dividends );
-        log::debug!( "D:\n{:?}\n", dividends.clone() );
+        log::trace!( "D:\n{:?}\n", dividends.clone() );
 
         // =================================
         // == Emission and Pruning scores ==
@@ -214,11 +214,11 @@ impl<T: Config> Pallet<T> {
         let float_rao_emission: I96F32 = I96F32::from_num( rao_emission );
         let emission: Vec<I96F32> = normalized_emission.iter().map( |e: &I32F32| I96F32::from_num( *e ) * float_rao_emission ).collect();
         let emission: Vec<u64> = emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
-        log::debug!( "E: {:?}", emission.clone() );
+        log::trace!( "E: {:?}", emission.clone() );
 
         // Set pruning scores.
         let pruning_scores: Vec<I32F32> = normalized_emission.clone();
-        log::debug!( "P: {:?}", pruning_scores.clone() );
+        log::trace!( "P: {:?}", pruning_scores.clone() );
 
         // ===================
         // == Value storage ==
@@ -281,7 +281,7 @@ impl<T: Config> Pallet<T> {
     pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
-        log::debug!( "n: {:?}", n );
+        log::trace!( "n: {:?}", n );
 
         // ======================
         // == Active & updated ==
@@ -289,23 +289,23 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::debug!( "current_block: {:?}", current_block );
+        log::trace!( "current_block: {:?}", current_block );
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff( netuid ) as u64;
-        log::debug!( "activity_cutoff: {:?}", activity_cutoff );
+        log::trace!( "activity_cutoff: {:?}", activity_cutoff );
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update( netuid );
-        log::debug!( "Last update: {:?}", last_update.clone() );
+        log::trace!( "Last update: {:?}", last_update.clone() );
 
         // Inactive mask.
         let inactive: Vec<bool> = last_update.iter().map(| updated | *updated + activity_cutoff < current_block ).collect();
-        log::debug!( "Inactive: {:?}", inactive.clone() );
+        log::trace!( "Inactive: {:?}", inactive.clone() );
 
         // Block at registration vector (block when each neuron was most recently registered).
         let block_at_registration: Vec<u64> = Self::get_block_at_registration( netuid );
-        log::debug!( "Block at registration: {:?}", block_at_registration.clone() );
+        log::trace!( "Block at registration: {:?}", block_at_registration.clone() );
 
         // ===========
         // == Stake ==
@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
         for ( uid_i, hotkey ) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( netuid ) {
             hotkeys.push( (uid_i, hotkey) ); 
         }
-        log::debug!( "hotkeys: {:?}", hotkeys.clone() );
+        log::trace!( "hotkeys: {:?}", hotkeys.clone() );
 
         // Access network stake as normalized vector.
         let mut stake_64: Vec<I64F64> = vec![ I64F64::from_num(0.0); n as usize ];
@@ -325,16 +325,16 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64( &mut stake_64 );
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
         // range: I32F32(0, 1)
-        log::debug!( "S: {:?}", stake.clone() );
+        log::trace!( "S: {:?}", stake.clone() );
 
         // Remove inactive stake.
         let mut active_stake: Vec<I32F32> = stake.clone();
         inplace_mask_vector( &inactive, &mut active_stake );
-        log::debug!( "S (mask): {:?}", active_stake.clone() );
+        log::trace!( "S (mask): {:?}", active_stake.clone() );
 
         // Normalize active stake.
         inplace_normalize( &mut active_stake );
-        log::debug!( "S (mask+norm): {:?}", active_stake.clone() );
+        log::trace!( "S (mask+norm): {:?}", active_stake.clone() );
 
         // =======================
         // == Validator permits ==
@@ -342,18 +342,18 @@ impl<T: Config> Pallet<T> {
 
         // Get current validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit( netuid );
-        log::debug!( "validator_permits: {:?}", validator_permits );
+        log::trace!( "validator_permits: {:?}", validator_permits );
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators( netuid );
-        log::debug!( "max_allowed_validators: {:?}", max_allowed_validators );
+        log::trace!( "max_allowed_validators: {:?}", max_allowed_validators );
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk( &stake, max_allowed_validators as usize );
-        log::debug!( "new_validator_permits: {:?}", new_validator_permits );
+        log::trace!( "new_validator_permits: {:?}", new_validator_permits );
 
         // =============
         // == Weights ==
@@ -361,23 +361,23 @@ impl<T: Config> Pallet<T> {
 
         // Access network weights row normalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse( netuid );
-        // log::debug!( "W: {:?}", weights.clone() );
+        // log::trace!( "W: {:?}", weights.clone() );
 
         // Mask weights that are not from permitted validators.
         weights = mask_rows_sparse( &validator_forbids, &weights );
-        // log::debug!( "W (permit): {:?}", weights.clone() );
+        // log::trace!( "W (permit): {:?}", weights.clone() );
 
         // Remove self-weight by masking diagonal.
         weights = mask_diag_sparse( &weights );
-        // log::debug!( "W (permit+diag): {:?}", weights.clone() );
+        // log::trace!( "W (permit+diag): {:?}", weights.clone() );
 
         // Remove weights referring to deregistered neurons.
         weights = vec_mask_sparse_matrix( &weights, &last_update, &block_at_registration, &| updated, registered | updated <= registered );
-        // log::debug!( "W (permit+diag+outdate): {:?}", weights.clone() );
+        // log::trace!( "W (permit+diag+outdate): {:?}", weights.clone() );
 
         // Normalize remaining weights.
         inplace_row_normalize_sparse( &mut weights );
-        // log::debug!( "W (mask+norm): {:?}", weights.clone() );
+        // log::trace!( "W (mask+norm): {:?}", weights.clone() );
 
         // ==========================================
         // == Weight consensus and Validator trust ==
@@ -410,7 +410,7 @@ impl<T: Config> Pallet<T> {
         // range: I32F32(0, 1)
         let mut ranks: Vec<I32F32> = matmul_sparse( &weights, &active_stake, n );
         inplace_normalize( &mut ranks );
-        log::debug!( "R: {:?}", ranks.clone() );
+        log::trace!( "R: {:?}", ranks.clone() );
 
         // Compute thresholded weights.
         // range: I32F32(0, 1)
@@ -418,25 +418,25 @@ impl<T: Config> Pallet<T> {
         let lower: I32F32 = I32F32::from_num( 0.0 );
         let threshold: I32F32 = I32F32::from_num( 0.1 ) / I32F32::from_num( n + 1 );
         let clipped_weights: Vec<Vec<(u16, I32F32)>> = clip_sparse( &weights, threshold, upper, lower );
-        // log::debug!( "W (threshold): {:?}", clipped_weights.clone() );
+        // log::trace!( "W (threshold): {:?}", clipped_weights.clone() );
 
         // Compute trust scores: t_j = SUM(i) w_ij * s_i
         // range: I32F32(0, 1)
         let trust: Vec<I32F32> = matmul_sparse( &clipped_weights, &active_stake, n );
-        log::debug!( "T: {:?}", trust.clone() );
+        log::trace!( "T: {:?}", trust.clone() );
 
         // Compute consensus.
         // range: I32F32(0, 1)
         let rho: I32F32 = Self::get_float_rho( netuid );
         let kappa: I32F32 = Self::get_float_kappa( netuid );
         let consensus: Vec<I32F32> = trust.iter().map(|t: &I32F32| sigmoid_safe(*t, rho, kappa)).collect();
-        log::debug!( "C: {:?}", consensus.clone() );
+        log::trace!( "C: {:?}", consensus.clone() );
 
         // Compute incentive.
         // range: I32F32(0, 1)
         let mut incentive: Vec<I32F32> = ranks.iter().zip( consensus.clone() ).map( |(ri, ci)| ri * ci ).collect();
         inplace_normalize( &mut incentive );
-        log::debug!( "I: {:?}", incentive.clone() );
+        log::trace!( "I: {:?}", incentive.clone() );
 
         // =========================
         // == Bonds and Dividends ==
@@ -444,23 +444,23 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds column normalized.
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse( netuid );
-        // log::debug!( "B: {:?}", bonds.clone() );
+        // log::trace!( "B: {:?}", bonds.clone() );
         
         // Remove bonds referring to deregistered neurons.
         bonds = vec_mask_sparse_matrix( &bonds, &last_update, &block_at_registration, &| updated, registered | updated <= registered );
-        // log::debug!( "B (outdatedmask): {:?}", bonds.clone() );
+        // log::trace!( "B (outdatedmask): {:?}", bonds.clone() );
 
         // Normalize remaining bonds: sum_i b_ij = 1.
         inplace_col_normalize_sparse( &mut bonds, n );
-        // log::debug!( "B (mask+norm): {:?}", bonds.clone() );        
+        // log::trace!( "B (mask+norm): {:?}", bonds.clone() );        
 
         // Compute bonds delta column normalized.
         let mut bonds_delta: Vec<Vec<(u16, I32F32)>> = row_hadamard_sparse( &weights, &active_stake ); // ΔB = W◦S (outdated W masked)
-        // log::debug!( "ΔB: {:?}", bonds_delta.clone() );
+        // log::trace!( "ΔB: {:?}", bonds_delta.clone() );
 
         // Normalize bonds delta.
         inplace_col_normalize_sparse( &mut bonds_delta, n ); // sum_i b_ij = 1
-        // log::debug!( "ΔB (norm): {:?}", bonds_delta.clone() );
+        // log::trace!( "ΔB (norm): {:?}", bonds_delta.clone() );
     
         // Compute bonds moving average.
         let alpha: I32F32 = I32F32::from_num( 0.1 );
@@ -468,13 +468,13 @@ impl<T: Config> Pallet<T> {
 
         // Normalize EMA bonds.
         inplace_col_normalize_sparse( &mut ema_bonds, n ); // sum_i b_ij = 1
-        // log::debug!( "emaB: {:?}", ema_bonds.clone() );
+        // log::trace!( "emaB: {:?}", ema_bonds.clone() );
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
         // range: I32F32(0, 1)
         let mut dividends: Vec<I32F32> = matmul_transpose_sparse( &ema_bonds, &incentive );
         inplace_normalize( &mut dividends );
-        log::debug!( "D: {:?}", dividends.clone() );
+        log::trace!( "D: {:?}", dividends.clone() );
 
         // =================================
         // == Emission and Pruning scores ==
@@ -498,12 +498,12 @@ impl<T: Config> Pallet<T> {
         let float_rao_emission: I96F32 = I96F32::from_num( rao_emission );
         let emission: Vec<I96F32> = normalized_emission.iter().map( |e: &I32F32| I96F32::from_num( *e ) * float_rao_emission ).collect();
         let emission: Vec<u64> = emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
-        log::debug!( "nE: {:?}", normalized_emission.clone() );
-        log::debug!( "E: {:?}", emission.clone() );
+        log::trace!( "nE: {:?}", normalized_emission.clone() );
+        log::trace!( "E: {:?}", emission.clone() );
 
         // Set pruning scores.
         let pruning_scores: Vec<I32F32> = normalized_emission.clone();
-        log::debug!( "P: {:?}", pruning_scores.clone() );
+        log::trace!( "P: {:?}", pruning_scores.clone() );
 
         // ===================
         // == Value storage ==
