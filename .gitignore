@@ -13,6 +13,9 @@
 # The cache for docker container dependency
 /.cargo/config
 
+# Zombienet binary and dependency directory
+/zombienet
+
 .DS_Store
 .idea
 .vscode
