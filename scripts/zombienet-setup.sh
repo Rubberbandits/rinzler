@@ -3,7 +3,7 @@
 echo "*** Initializing Zombienet installation"
 
 WORKING_DIR=$(pwd)
-BRANCH="origin/release-v0.9.32"
+BRANCH="polkadot-v0.9.32"
 
 # Download zombienet bin
 DIST="linux"
@@ -56,6 +56,7 @@ echo "*** Downloading relay chain"
 # Download relay chain
 mkdir "${DIR}/polkadot"
 git clone https://github.com/paritytech/polkadot.git "${DIR}/polkadot"
+git fetch --all
 git checkout $BRANCH
 cd "${DIR}/polkadot"
 
