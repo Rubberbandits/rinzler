@@ -1,5 +1,5 @@
 [relaychain]
-default_command = "./polkadot/target/release/polkadot-v0.9.32"
+default_command = "zombienet/polkadot/target/release/polkadot"
 default_args = [ "-lparachain=debug" ]    
 
 chain = "rococo-local"
@@ -18,5 +18,5 @@ chain = "dev"
 
   [parachains.collator]
   name = "parachain-A-1000-collator-01"
-  command = "../target/release/paratensor"
+  command = "target/release/paratensor"
   ws_port = "{{ZOMB_WS_PORT}}"
