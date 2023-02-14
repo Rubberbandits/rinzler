@@ -26,7 +26,7 @@ macos
 #### Requirements
 
 - [Node.js](https://nodejs.org/) if you are not using the self contained linux or macos
-  [releases](https://github.com/paritytech/zombienet/releases).
+- [releases](https://github.com/paritytech/zombienet/releases).
 - [Kubernetes](https://kubernetes.io) cluster to use `kubernetes` target (`kubectl` command installed).
 - [Podman](https://podman.io) to use `podman` target.
 
