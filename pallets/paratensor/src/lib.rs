@@ -585,9 +585,10 @@ pub mod pallet {
 		/// 		- The number of the block we are initializing.
 		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
 			Self::block_step();
-			return Weight::from_ref_time(794_886_000_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(8204 as u64))
-			.saturating_add(T::DbWeight::get().writes(110 as u64));
+			return Weight::from_ref_time(0 as u64) ;
+			// return Weight::from_ref_time(794_886_000_000 as u64)
+			// .saturating_add(T::DbWeight::get().reads(8204 as u64))
+			// .saturating_add(T::DbWeight::get().writes(110 as u64));
 		}
 	}
 
@@ -1008,7 +1009,7 @@ pub mod pallet {
 		/// 	* `emission` (Vec<u64>):
 		/// 		- The emission values associated with passed netuids in order.
 		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_emission_values(
 			origin: OriginFor<T>,
 			netuids: Vec<u16>,
