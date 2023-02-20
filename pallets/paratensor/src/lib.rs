@@ -585,10 +585,10 @@ pub mod pallet {
 		/// 		- The number of the block we are initializing.
 		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
 			Self::block_step();
-			return Weight::from_ref_time(0 as u64) ;
-			// return Weight::from_ref_time(794_886_000_000 as u64)
-			// .saturating_add(T::DbWeight::get().reads(8204 as u64))
-			// .saturating_add(T::DbWeight::get().writes(110 as u64));
+			
+			return Weight::from_ref_time(110_634_229_000 as u64)
+						.saturating_add(T::DbWeight::get().reads(8304 as u64))
+						.saturating_add(T::DbWeight::get().writes(110 as u64));
 		}
 	}
 

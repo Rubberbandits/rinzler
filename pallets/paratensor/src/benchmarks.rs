@@ -40,6 +40,18 @@ benchmarks! {
     );
   }: _( RawOrigin::Signed( caller.clone() ) )
 
+  benchmark_sudo_register {
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+    Paratensor::<T>::create_network_with_weights(
+      caller_origin.clone(), 
+      11u16.into(), // netuid
+      4096u16.into(), // n
+      1000u16.into(), // tempo
+      100u16.into(), // n_vals
+      1000u16.into() // n_weights
+    );
+  }: sudo_register( RawOrigin::Signed( caller.clone() ),  11u16.into(), account("Alice", 0, 1), account("Bob", 0, 2), 100u64.into(), 120u64.into() )
   // Add individual benchmarks here
   // benchmark_drain_emission { 
 
