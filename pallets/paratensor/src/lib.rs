@@ -573,6 +573,41 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 	}
 
+	/// ==================
+	/// ==== Genesis =====
+	/// ==================
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub hot_keys: T::Keys,
+		pub hot_keys_stake: T::TotalHotkeyStake,
+		pub cold_keys_stake: T::TotalColdkeyStake,
+		pub stake: T::Stake,
+	}
+
+	#[cfg(feature = "std")]
+	impl Default for GenesisConfig {
+		fn default() -> Self {
+			Self { 
+				hot_keys: Default::default(),
+				hot_keys_stake: Default::default(),
+				cold_keys_stake: Default::default(),
+				stake: Default::default()
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+		fn build(&self) {
+			// parse picklefile
+			Keys::<T>::set(self.hot_keys);
+
+			TotalHotkeyStake::<T>::set(self.hot_keys_stake);
+			TotalColdkeyStake::<T>::set(self.cold_keys_stake);
+			Stake::<T>::set(self.stake);
+		}
+	}
+
 	/// ================
 	/// ==== Hooks =====
 	/// ================

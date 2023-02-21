@@ -108,6 +108,14 @@ fn testnet_genesis(
 		polkadot_xcm: paratensor_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+
+		// Paratensor pallet genesis
+		paratensor: paratensor_runtime::ParatensorConfig {
+			hot_keys: Default::default(), // temporary values
+			hot_keys_stake: Default::default(),
+			cold_keys_stake: Default::default(),
+			stake: Default::default()
+		}
 	}
 }
 
