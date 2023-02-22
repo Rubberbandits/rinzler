@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "512"]
 pub use pallet::*;
 
 use frame_system::{
