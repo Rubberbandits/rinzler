@@ -78,7 +78,7 @@ fn testnet_genesis(
 		balances: paratensor_runtime::BalancesConfig {
 			//balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 			balances: vec![ 
-				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465)
+				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465000)
 				],
 		},
 		sudo: paratensor_runtime::SudoConfig { key: Some(root_key) },
@@ -282,6 +282,23 @@ pub fn rococo_testnet_config() -> ChainSpec {
 						Ss58Codec::from_ss58check("5F46fcTzcMSm7e6Tu9W6DmEeLcA1wE6rxdN42fniWFZJRdWp").unwrap(),
 						Ss58Codec::from_ss58check("5F46fcTzcMSm7e6Tu9W6DmEeLcA1wE6rxdN42fniWFZJRdWp").unwrap(),
 					),
+					(
+						Ss58Codec::from_ss58check("Fk3FnurqREFZ7CW7Vc44k6magDAvmn1oNmWEiG9gJPjxZMP").unwrap(),
+						Ss58Codec::from_ss58check("Fk3FnurqREFZ7CW7Vc44k6magDAvmn1oNmWEiG9gJPjxZMP").unwrap(),
+					),
+					(
+						Ss58Codec::from_ss58check("HC4AUuwxHALGCcHo3JAo6XgLKA5nQhy4cjgGjLpFKhbpyzT").unwrap(),
+						Ss58Codec::from_ss58check("HC4AUuwxHALGCcHo3JAo6XgLKA5nQhy4cjgGjLpFKhbpyzT").unwrap(),
+					),
+					(
+						Ss58Codec::from_ss58check("GvUoJw9CVqdmmRTkGcAfPyUbBWU8k7bQXHYUg66dJZLypYA").unwrap(),
+						Ss58Codec::from_ss58check("GvUoJw9CVqdmmRTkGcAfPyUbBWU8k7bQXHYUg66dJZLypYA").unwrap(),
+					),
+					(
+						Ss58Codec::from_ss58check("GXk9MJ2xbcTrtwoLwShET6grTjW961b5ha8bwFSgukdtWLC").unwrap(),
+						Ss58Codec::from_ss58check("GXk9MJ2xbcTrtwoLwShET6grTjW961b5ha8bwFSgukdtWLC").unwrap(),
+					),
+
 				],
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),

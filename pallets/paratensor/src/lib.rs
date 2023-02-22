@@ -14,8 +14,11 @@ use frame_support::{dispatch, ensure, traits::{
 	}
 }};
 
+/// ============================
+///	==== Benchmark Imports =====
+/// ============================
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+mod benchmarks;
 
 /// =========================
 ///	==== Pallet Imports =====
@@ -23,13 +26,17 @@ mod benchmarking;
 mod registration;
 mod epoch;
 mod math;
+mod uids;
 mod utils;
 mod staking;
 mod weights;
 mod networks;
 mod serving; 
 mod block_step;
-// RPC impl imports
+
+/// ===========================
+///	==== RPC impl imports =====
+/// ===========================
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
@@ -288,7 +295,6 @@ pub mod pallet {
 
 	// --- Struct for Prometheus.
 	pub type PrometheusInfoOf = PrometheusInfo;
-
 	#[serde_as]
 	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 	pub struct PrometheusInfo {
@@ -421,71 +427,55 @@ pub mod pallet {
 	/// ==== Subnetwork Consensus Storage  ====
 	/// =======================================
 	#[pallet::type_value] 
-	pub fn DefaultRank<T:Config>() -> u16 { 0 }
+	pub fn EmptyU16Vec<T:Config>() -> Vec<u16> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultStake<T:Config>() -> u64 { 0 }
+	pub fn EmptyU64Vec<T:Config>() -> Vec<u64> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultTrust<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorTrust<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultEmission<T:Config>() -> u64 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultIncentive<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultConsensus<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultWeightConsensus<T:Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultLastUpdate<T:Config>() -> u64 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultDividends<T: Config>() -> u16 { 0 }
-	#[pallet::type_value] 
-	pub fn DefaultActive<T:Config>() -> bool { false }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorPermit<T:Config>() -> bool { false }
+	pub fn EmptyBoolVec<T:Config>() -> Vec<bool> { vec![] }
 	#[pallet::type_value] 
 	pub fn DefaultBonds<T:Config>() -> Vec<(u16, u16)> { vec![] }
 	#[pallet::type_value] 
 	pub fn DefaultWeights<T:Config>() -> Vec<(u16, u16)> { vec![] }
 	#[pallet::type_value] 
-	pub fn DefaultPruningScore<T: Config>() -> u16 { T::InitialPruningScore::get() }
-	#[pallet::type_value] 
 	pub fn DefaultKey<T:Config>() -> T::AccountId { T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap() }
 
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> rank
-	pub(super) type Rank<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultRank<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> trust
-	pub(super) type Trust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultTrust<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> validator_trust
-	pub(super) type ValidatorTrust<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultValidatorTrust<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> active
-	pub(super) type Active<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, bool, ValueQuery, DefaultActive<T> >;
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
 	pub(super) type Keys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> emission 
-	pub(super) type Emission<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u64, ValueQuery, DefaultEmission<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> incentive
-	pub(super) type Incentive<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultIncentive<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> consensus
-	pub(super) type Consensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultConsensus<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weight_consensus
-	pub(super) type WeightConsensus<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultWeightConsensus<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> dividends
-	pub(super) type Dividends<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultDividends<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> last_update
-	pub(super) type LastUpdate<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64 , ValueQuery, DefaultLastUpdate<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
-    pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> validator_permit
-    pub(super) type ValidatorPermit<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, bool, ValueQuery, DefaultValidatorPermit<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> emission
+	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64)>, OptionQuery >;
+
+	#[pallet::storage] /// --- DMAP ( netuid ) --> active
+	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> rank
+	pub(super) type Rank<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> trust
+	pub(super) type Trust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> consensus
+	pub(super) type Consensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> incentive
+	pub(super) type Incentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
+	pub(super) type Dividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> dividends
+	pub(super) type Emission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> last_update
+	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_trust
+	pub(super) type ValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> weight_consensus
+	pub(super) type WeightConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> pruning_scores
+	pub(super) type PruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T> >;
+	#[pallet::storage] /// --- DMAP ( netuid ) --> validator_permit
+    pub(super) type ValidatorPermit<T:Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
+
 	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> weights
     pub(super) type Weights<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T> >;
-	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> pruning_score.
-	pub(super) type PruningScores<T:Config> = StorageDoubleMap< _, Identity, u16, Identity, u16, u16, ValueQuery, DefaultPruningScore<T> >;
-	
+	#[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
+    pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
+
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -505,6 +495,7 @@ pub mod pallet {
 		DifficultySet( u16, u64 ), // --- Event created when the difficulty has been set for a subnet.
 		AdjustmentIntervalSet( u16, u16 ), // --- Event created when the adjustment interval is set for a subnet.
 		RegistrationPerIntervalSet( u16, u16 ), // --- Event created when registeration per interval is set for a subnet.
+		MaxRegistrationsPerBlockSet( u16, u16), // --- Event created when we set max registrations per block
 		ActivityCutoffSet( u16, u16 ), // --- Event created when an activity cutoff is set for a subnet.
 		WeightCutsSet( u16, u16 ), // --- Event created when WeightCuts value is set.
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
@@ -594,7 +585,10 @@ pub mod pallet {
 		/// 		- The number of the block we are initializing.
 		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
 			Self::block_step();
-			T::DbWeight::get().writes(0)
+			
+			return Weight::from_ref_time(110_634_229_000 as u64)
+						.saturating_add(T::DbWeight::get().reads(8304 as u64))
+						.saturating_add(T::DbWeight::get().writes(110 as u64));
 		}
 	}
 
@@ -928,7 +922,7 @@ pub mod pallet {
 		) -> DispatchResult { 
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
 		}
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_register( 
 				origin:OriginFor<T>, 
 				netuid: u16,
@@ -976,7 +970,7 @@ pub mod pallet {
 			netuid: u16,
 			tempo: u16,
 			modality: u16
-		)-> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::do_add_network(origin, netuid, tempo, modality)
 		}
 
@@ -1015,7 +1009,7 @@ pub mod pallet {
 		/// 	* `emission` (Vec<u64>):
 		/// 		- The emission values associated with passed netuids in order.
 		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_emission_values(
 			origin: OriginFor<T>,
 			netuids: Vec<u16>,
@@ -1027,70 +1021,6 @@ pub mod pallet {
 				emission
 			)
 		}
-
-		/// ---- Sudo bulk register accounts
-		/// Args:
-		/// 	* 'origin': (<T as frame_system::Config>Origin):
-		/// 		- The caller, must be sudo.
-		///
-		/// 	* `netuid` ( u16 ):
-		/// 		- The network we are intending on performing the bulk creation on.
-		///
-		/// 	* `hotkeys` ( Vec<T::AccountId> ):
-		/// 		- List of hotkeys to register on account.
-		///
-		/// 	* `coldkeys` ( Vec<T::AccountId> ):
-		/// 		- List of coldkeys related to hotkeys.
-		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_import_registration(
-			origin: OriginFor<T>,
-			netuid: u16,
-			coldkey: T::AccountId,
-			hotkeys: Vec<T::AccountId>,
-			stakes: Vec<u64>,
-			coldkey_balance: u64
-
-		) -> DispatchResult {
-			Self::do_import_registration( 
-				origin,
-				netuid,
-				coldkey,
-				hotkeys,
-				stakes,
-				coldkey_balance
-			)
-		}
-
-		/// ---- Sudo bulk set balances
-		/// Args:
-		/// 	* 'origin': (<T as frame_system::Config>Origin):
-		/// 		- The caller, must be sudo.
-		///
-		/// 	* `netuid` ( u16 ):
-		/// 		- The network we are intending on performing the bulk creation on.
-		///
-		/// 	* `hotkeys` ( Vec<T::AccountId> ):
-		/// 		- List of hotkeys to register on account.
-		///
-		/// 	* `coldkeys` ( Vec<T::AccountId> ):
-		/// 		- List of coldkeys related to hotkeys.
-		/// 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_bulk_set_balances(
-			origin: OriginFor<T>,
-			netuid: u16,
-			coldkeys: Vec<T::AccountId>,
-			balances: Vec<u64>
-		) -> DispatchResult {
-			Self::do_bulk_set_balances( 
-				origin,
-				netuid,
-				coldkeys,
-				balances
-			)
-		}
-
 
 		/// ---- Sudo add a network connect requirement.
 		/// Args:
@@ -1249,10 +1179,72 @@ pub mod pallet {
 		pub fn sudo_set_max_weight_limit( origin:OriginFor<T>, netuid: u16, max_weight_limit: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_weight_limit( origin, netuid, max_weight_limit )
 		}
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16,) -> DispatchResult {
-			Self::do_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
+			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
+
+
+		/// Benchmarking functions.
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			Ok(())
+		}
+
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			Self::set_max_allowed_validators( netuid, n_vals );
+			Self::set_min_allowed_weights( netuid, n_weights );
+			Self::set_emission_for_network( netuid, 1_000_000_000 );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::increase_stake_on_coldkey_hotkey_account( &hotkey, &hotkey, 1_000_000_000 );
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			for uid in 0..n {
+				let uids: Vec<u16> = (0..n_weights).collect();
+				let values: Vec<u16> = vec![1; n_weights as usize];
+				let normalized_values = Self::normalize_weights( values );
+				let mut zipped_weights: Vec<( u16, u16 )> = vec![];
+				for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
+				if uid < n_vals {
+					Weights::<T>::insert( netuid, uid, zipped_weights );
+				} else {
+					break;
+				}
+			}
+			Ok(())
+		}
+
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
+			Self::epoch( 11, 1_000_000_000 );
+			Ok(())
+		} 
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
+			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
+			Ok(())
+		} 
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
+			Self::drain_emission( 11 );
+			Ok(())
+		} 
 	}	
 
 }

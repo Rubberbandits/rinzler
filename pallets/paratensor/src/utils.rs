@@ -1,5 +1,6 @@
 
 use super::*;
+use frame_support::inherent::Vec;
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
@@ -7,11 +8,10 @@ use crate::system::ensure_root;
 impl<T: Config> Pallet<T> {
 
     /// ========================
-	/// ==== Global Getters ====
+	/// ==== Global Setters ====
 	/// ========================
-    pub fn set_last_update_for_neuron(netuid: u16, neuron_uid: u16, update: u64){ LastUpdate::<T>::insert(netuid, neuron_uid, update); }
+    pub fn set_tempo( netuid: u16, tempo: u16 ) { Tempo::<T>::insert( netuid, tempo ); }
     pub fn set_last_adjustment_block( netuid: u16, last_adjustment_block: u64 ) { LastAdjustmentBlock::<T>::insert( netuid, last_adjustment_block ); }
-    pub fn set_max_registrations_per_block( netuid: u16, max_registrations: u16 ){ MaxRegistrationsPerBlock::<T>::insert( netuid, max_registrations ); }
     pub fn set_blocks_since_last_step( netuid: u16, blocks_since_last_step: u64 ) { BlocksSinceLastStep::<T>::insert( netuid, blocks_since_last_step ); }
     pub fn set_registrations_this_block( netuid: u16, registrations_this_block: u16 ) { RegistrationsThisBlock::<T>::insert(netuid, registrations_this_block); }
     pub fn set_last_mechanism_step_block( netuid: u16, last_mechanism_step_block: u64 ) { LastMechansimStepBlock::<T>::insert(netuid, last_mechanism_step_block); }
@@ -23,6 +23,67 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_issuance() -> u64 { TotalIssuance::<T>::get() }
     pub fn get_block_emission() -> u64 { BlockEmission::<T>::get() }
     pub fn get_current_block_as_u64( ) -> u64 { TryInto::try_into( system::Pallet::<T>::block_number() ).ok().expect("blockchain will not exceed 2^64 blocks; QED.") }
+
+    /// ==============================
+	/// ==== YumaConsensus params ====
+	/// ==============================
+    pub fn get_rank( netuid:u16 ) -> Vec<u16> { Rank::<T>::get( netuid ) }
+    pub fn get_trust( netuid:u16 ) -> Vec<u16> { Trust::<T>::get( netuid ) }
+    pub fn get_active( netuid:u16 ) -> Vec<bool> { Active::<T>::get( netuid ) }
+    pub fn get_emission( netuid:u16 ) -> Vec<u64> { Emission::<T>::get( netuid ) }
+    pub fn get_consensus( netuid:u16 ) -> Vec<u16> { Consensus::<T>::get( netuid ) }
+    pub fn get_incentive( netuid:u16 ) -> Vec<u16> { Incentive::<T>::get( netuid ) }
+    pub fn get_dividends( netuid:u16 ) -> Vec<u16> { Dividends::<T>::get( netuid ) }
+    pub fn get_last_update( netuid:u16 ) -> Vec<u64> { LastUpdate::<T>::get( netuid ) }
+    pub fn get_pruning_score( netuid:u16 ) -> Vec<u16> { PruningScores::<T>::get( netuid ) }
+    pub fn get_validator_trust( netuid:u16 ) -> Vec<u16> { ValidatorTrust::<T>::get( netuid ) }
+    pub fn get_weight_consensus( netuid:u16 ) -> Vec<u16> { WeightConsensus::<T>::get( netuid ) }
+    pub fn get_validator_permit( netuid:u16 ) -> Vec<bool> { ValidatorPermit::<T>::get( netuid ) }
+
+    /// ==================================
+	/// ==== YumaConsensus UID params ====
+	/// ==================================
+    pub fn set_last_update_for_uid( netuid:u16, uid: u16, last_update: u64 ) { 
+        let mut updated_last_update_vec = Self::get_last_update( netuid ); 
+        if (uid as usize) < updated_last_update_vec.len() { 
+            updated_last_update_vec[uid as usize] = last_update;
+            LastUpdate::<T>::insert( netuid, updated_last_update_vec );
+        }  
+    }
+    pub fn set_active_for_uid( netuid:u16, uid: u16, active: bool ) { 
+        let mut updated_active_vec = Self::get_active( netuid ); 
+        if (uid as usize) < updated_active_vec.len() { 
+            updated_active_vec[uid as usize] = active;
+            Active::<T>::insert( netuid, updated_active_vec );
+        }  
+    }
+    pub fn set_pruning_score_for_uid( netuid:u16, uid: u16, pruning_score: u16 ) {
+        log::info!("netuid = {:?}", netuid);
+        log::info!("SubnetworkN::<T>::get( netuid ) = {:?}", SubnetworkN::<T>::get( netuid ) );
+        log::info!("uid = {:?}", uid );
+        assert!( uid < SubnetworkN::<T>::get( netuid ) );
+        PruningScores::<T>::mutate( netuid, |v| v[uid as usize] = pruning_score );
+    }
+    pub fn set_validator_permit_for_uid( netuid:u16, uid: u16, validator_permit: bool ) { 
+        let mut updated_validator_permit = Self::get_validator_permit( netuid ); 
+        if (uid as usize) < updated_validator_permit.len() { 
+            updated_validator_permit[uid as usize] = validator_permit;
+            ValidatorPermit::<T>::insert( netuid, updated_validator_permit );
+        }  
+    }
+
+    pub fn get_rank_for_uid( netuid:u16, uid: u16) -> u16 { let vec = Rank::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_trust_for_uid( netuid:u16, uid: u16) -> u16 { let vec = Trust::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_emission_for_uid( netuid:u16, uid: u16) -> u64 {let vec =  Emission::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_active_for_uid( netuid:u16, uid: u16) -> bool { let vec = Active::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return false } }
+    pub fn get_consensus_for_uid( netuid:u16, uid: u16) -> u16 { let vec = Consensus::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_incentive_for_uid( netuid:u16, uid: u16) -> u16 { let vec = Incentive::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_dividends_for_uid( netuid:u16, uid: u16) -> u16 { let vec = Dividends::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_last_update_for_uid( netuid:u16, uid: u16) -> u64 { let vec = LastUpdate::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_pruning_score_for_uid( netuid:u16, uid: u16) -> u16 { let vec = PruningScores::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return u16::MAX } }
+    pub fn get_validator_trust_for_uid( netuid:u16, uid: u16) -> u16 { let vec = ValidatorTrust::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_weight_consensus_for_uid( netuid:u16, uid: u16) -> u16 { let vec = WeightConsensus::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
+    pub fn get_validator_permit_for_uid( netuid:u16, uid: u16) -> bool { let vec = ValidatorPermit::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return false } }
 
     /// ============================
 	/// ==== Subnetwork Getters ====
@@ -36,7 +97,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_registrations_this_block( netuid:u16 ) -> u16 { RegistrationsThisBlock::<T>::get( netuid ) }
     pub fn get_last_mechanism_step_block( netuid: u16 ) -> u64 { LastMechansimStepBlock::<T>::get( netuid ) }
     pub fn get_registrations_this_interval( netuid: u16 ) -> u16 { RegistrationsThisInterval::<T>::get( netuid ) } 
-    pub fn get_max_registrations_per_block( netuid: u16 ) -> u16 { MaxRegistrationsPerBlock::<T>::get( netuid ) } 
     pub fn get_neuron_block_at_registration( netuid: u16, neuron_uid: u16 ) -> u64 { BlockAtRegistration::<T>::get( netuid, neuron_uid )}
 
     /// ========================
@@ -338,6 +398,21 @@ impl<T: Config> Pallet<T> {
         Self::set_bonds_moving_average( netuid, bonds_moving_average );
         log::info!("BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ", netuid, bonds_moving_average );
         Self::deposit_event( Event::BondsMovingAverageSet( netuid, bonds_moving_average ) );
+        Ok(())
+    }
+
+    pub fn get_max_registrations_per_block( netuid: u16 ) -> u16 { MaxRegistrationsPerBlock::<T>::get( netuid ) }
+    pub fn set_max_registrations_per_block( netuid: u16, max_registrations_per_block: u16 ) { MaxRegistrationsPerBlock::<T>::insert( netuid, max_registrations_per_block ); }
+    pub fn do_sudo_set_max_registrations_per_block(
+        origin: T::RuntimeOrigin, 
+        netuid: u16, 
+        max_registrations_per_block: u16
+    ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        Self::set_max_registrations_per_block( netuid, max_registrations_per_block );
+        log::info!("MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ", netuid, max_registrations_per_block );
+        Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
         Ok(())
     }
 

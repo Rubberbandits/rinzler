@@ -226,9 +226,9 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the total amount of stake held by the coldkey (delegative or otherwise)
     ///
-    pub fn get_total_stake_for_coldkey( coldkey: &T::AccountId ) -> u64 { 
-        return TotalColdkeyStake::<T>::get( coldkey ); 
-    }
+    // pub fn get_total_stake_for_coldkey( coldkey: &T::AccountId ) -> u64 { 
+    //     return TotalColdkeyStake::<T>::get( coldkey ); 
+    // }
 
     /// Returns the stake under the cold - hot pairing in the staking table.
     ///
@@ -289,31 +289,23 @@ impl<T: Config> Pallet<T> {
     /// This function should be called rather than set_stake under account.
     /// 
     pub fn increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
-        TotalColdkeyStake::<T>::insert( coldkey, Self::get_total_stake_for_coldkey( coldkey ).saturating_add( increment ) );
-        TotalHotkeyStake::<T>::insert( hotkey,  Self::get_total_stake_for_hotkey( hotkey ).saturating_add( increment ) );
-        let previous_stake: u64 = Self::get_stake_for_coldkey_and_hotkey( coldkey, hotkey );
-        Self::__set_stake_under_coldkey_hotkey( coldkey, hotkey, previous_stake.saturating_add( increment ) ); 
-        TotalStake::<T>::put( Self::get_total_stake().saturating_add( increment ) );
+        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( increment ) );
+
     }
 
     /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
     ///
     pub fn decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
-        TotalColdkeyStake::<T>::insert( coldkey, Self::get_total_stake_for_coldkey( coldkey ).saturating_sub( decrement ) );
-        TotalHotkeyStake::<T>::insert( hotkey, Self::get_total_stake_for_hotkey( hotkey ).saturating_sub( decrement ) );
-        let previous_stake: u64 = Self::get_stake_for_coldkey_and_hotkey( coldkey, hotkey );
-        Self::__set_stake_under_coldkey_hotkey( coldkey, hotkey, previous_stake.saturating_sub( decrement ) ); 
-        TotalStake::<T>::put( Self::get_total_stake().saturating_sub( decrement ) );
+        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
+        TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
+        Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
+        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( decrement ) );
     }
-
-    /// Private: Sets the amount of stake under the cold and hot pairinig in the staking table.
-    ///
-    pub fn __set_stake_under_coldkey_hotkey( coldkey: &T::AccountId, hotkey: &T::AccountId, stake:u64 ) { 
-        Stake::<T>::insert( hotkey, coldkey, stake );
-    }
-
-
-
 
 	pub fn u64_to_balance( input: u64 ) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance> { input.try_into().ok() }
 

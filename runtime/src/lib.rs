@@ -201,9 +201,9 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 // Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const MILLIUNIT: Balance = 1_000_000_000;
-pub const MICROUNIT: Balance = 1_000_000;
+pub const UNIT: Balance = 1_000_000_000;
+pub const MILLIUNIT: Balance = 1_000_000;
+pub const MICROUNIT: Balance = 1_000;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
@@ -218,8 +218,8 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND
-	.saturating_div(2)
-	.set_proof_size(cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64);
+    .saturating_div(2)
+    .set_proof_size(cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64);
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -372,6 +372,13 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
@@ -468,39 +475,39 @@ impl pallet_collator_selection::Config for Runtime {
 // Configure the pallet paratensor.
 parameter_types! {
 	pub const ParatensorInitialRho: u16 = 30;
-	pub const ParatensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
-	pub const ParatensorInitialWeightCuts: u16 = 3;
-	pub const ParatensorInitialMaxAllowedUids: u16 = 2000;
-	pub const ParatensorInitialIssuance: u64 = 0;
-	pub const ParatensorInitialMinAllowedWeights: u16 = 0;
-	pub const ParatensorInitialEmissionValue: u16 = 0;
-	pub const ParatensorInitialMaxWeightsLimit: u16 = u16::MAX;
-	pub const ParatensorInitialValidatorBatchSize: u16 = 10;
-	pub const ParatensorInitialValidatorSequenceLen: u16 = 10;
-	pub const ParatensorInitialValidatorEpochLen: u16 = 1000;
-	pub const ParatensorInitialValidatorEpochsPerReset: u16 = 60;
-	pub const ParatensorInitialValidatorExcludeQuantile: u16 = 10; // 0.1
-	pub const ParatensorInitialValidatorPruneLen: u64 = 0;
-	pub const ParatensorInitialValidatorLogitsDivergence: u64 = 0;
-	pub const ParatensorInitialScalingLawPower: u16 = 50; // 0.5
-	pub const ParatensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
-	pub const ParatensorInitialMaxAllowedValidators: u16 = 100;
-	pub const ParatensorInitialTempo: u16 = 0;
-	pub const ParatensorInitialDifficulty: u64 = 10000000;
-	pub const ParatensorInitialAdjustmentInterval: u16 = 100;
-	pub const ParatensorInitialTargetRegistrationsPerInterval: u16 = 2;
-	pub const ParatensorInitialImmunityPeriod: u16 = 200;
-	pub const ParatensorInitialActivityCutoff: u16 = 5000;
-	pub const ParatensorInitialMaxRegistrationsPerBlock: u16 = 2;
-	pub const ParatensorInitialPruningScore : u16 = u16::MAX;
-	pub const ParatensorInitialBondsMovingAverage: u64 = 900000;
-	pub const ParatensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-	pub const ParatensorInitialWeightsVersionKey: u64 = 0;
-	pub const ParatensorInitialMinDifficulty: u64 = 1;
-	pub const ParatensorInitialMaxDifficulty: u64 = u64::MAX;
-	pub const ParatensorInitialServingRateLimit: u64 = 1000; // Can reserve information on network every 1000 blocks.
-
+    pub const ParatensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
+    pub const ParatensorInitialWeightCuts: u16 = 3;
+    pub const ParatensorInitialMaxAllowedUids: u16 = 4096;
+    pub const ParatensorInitialIssuance: u64 = 0;
+    pub const ParatensorInitialMinAllowedWeights: u16 = 0;
+    pub const ParatensorInitialEmissionValue: u16 = 0;
+    pub const ParatensorInitialMaxWeightsLimit: u16 = u16::MAX;
+    pub const ParatensorInitialValidatorBatchSize: u16 = 10;
+    pub const ParatensorInitialValidatorSequenceLen: u16 = 10;
+    pub const ParatensorInitialValidatorEpochLen: u16 = 1000;
+    pub const ParatensorInitialValidatorEpochsPerReset: u16 = 60;
+    pub const ParatensorInitialValidatorExcludeQuantile: u16 = 10; // 0.1
+    pub const ParatensorInitialValidatorPruneLen: u64 = 0;
+    pub const ParatensorInitialValidatorLogitsDivergence: u64 = 0;
+    pub const ParatensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const ParatensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
+    pub const ParatensorInitialMaxAllowedValidators: u16 = 100;
+    pub const ParatensorInitialTempo: u16 = 0;
+    pub const ParatensorInitialDifficulty: u64 = 1;
+    pub const ParatensorInitialAdjustmentInterval: u16 = 100;
+    pub const ParatensorInitialTargetRegistrationsPerInterval: u16 = 2;
+    pub const ParatensorInitialImmunityPeriod: u16 = 200;
+    pub const ParatensorInitialActivityCutoff: u16 = 5000;
+    pub const ParatensorInitialMaxRegistrationsPerBlock: u16 = 50;
+    pub const ParatensorInitialPruningScore : u16 = u16::MAX;
+    pub const ParatensorInitialBondsMovingAverage: u64 = 900000;
+    pub const ParatensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const ParatensorInitialWeightsVersionKey: u64 = 0;
+    pub const ParatensorInitialMinDifficulty: u64 = 1;
+    pub const ParatensorInitialMaxDifficulty: u64 = 10;
+    pub const ParatensorInitialServingRateLimit: u64 = 1000; 
 }
+
 impl pallet_paratensor::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -554,6 +561,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 3,
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
+		Utility: pallet_utility::{Pallet, Call, Storage, Event} = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
@@ -586,6 +594,7 @@ mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_paratensor, Paratensor]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
