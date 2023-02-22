@@ -16,6 +16,10 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.145", features = ["derive"] }
 jsonrpsee = { version = "0.15.1", features = ["server"] }
 
+# Storage import
+memmap2 = "0.5.0"
+serde_json = "1.0.85"
+
 # Local
 paratensor-runtime = { path = "../runtime" }
 
