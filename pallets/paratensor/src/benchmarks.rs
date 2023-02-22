@@ -4,17 +4,13 @@
 //mod benchmarking;
 
 use crate::*;
-use super::*;
 use crate::Pallet as Paratensor;
-use sp_runtime::traits::Bounded;
-use frame_benchmarking::{benchmarks, whitelisted_caller, impl_benchmark_test_suite, account};
+use frame_benchmarking::{benchmarks, whitelisted_caller, account};
 use frame_system::RawOrigin;
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
 pub use pallet::*;
-use sp_std::if_std;
 use frame_support::assert_ok;
-use frame_support::traits::OriginTrait;
 //use mock::{Test, new_test_ext};
 
 benchmarks! {
@@ -62,7 +58,7 @@ benchmarks! {
     Paratensor::<T>::set_tempo( netuid, tempo );
 
     // Lets fill the network with 100 UIDS and no weights.
-    let mut SEED : u32 = 1;
+    let mut seed : u32 = 1;
     let mut emission: Vec<(T::AccountId, u64)> = vec![];
     for uid in 0..n as u16 {
         let block_number: u64 = Paratensor::<T>::get_current_block_as_u64();
@@ -131,7 +127,7 @@ benchmarks! {
     let mut seed : u32 = 1; 
     let mut dests: Vec<u16> = vec![];
     let mut weights: Vec<u16> = vec![];
-    let signer : T::AccountId = account("Alice", 0, seed);;
+    let signer : T::AccountId = account("Alice", 0, seed);
 
     for id in 0..4096 as u16 {
       let block_number: u64 = Paratensor::<T>::get_current_block_as_u64();
@@ -279,7 +275,7 @@ benchmarks! {
     Paratensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
     assert_eq!(Paratensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-    let seed : u32 = 1;
+    let mut seed : u32 = 1;
     let block_number: u64 = Paratensor::<T>::get_current_block_as_u64();
     let hotkey: T::AccountId = account("Alice", 0, seed);
     let coldkey: T::AccountId = account("Test", 0, seed);
