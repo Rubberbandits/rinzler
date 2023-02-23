@@ -939,7 +939,7 @@ pub mod pallet {
 		}
 		#[pallet::weight((Weight::from_ref_time(110_442_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(20 as u64))
-		.saturating_add(T::DbWeight::get().writes(22 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(22 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_register( 
 				origin:OriginFor<T>, 
 				netuid: u16,
@@ -983,7 +983,7 @@ pub mod pallet {
 		///
 		#[pallet::weight((Weight::from_ref_time(62_096_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(15 as u64))
-		.saturating_add(T::DbWeight::get().writes(18 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(18 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_add_network(
 			origin: OriginFor<T>,
 			netuid: u16,
@@ -1011,7 +1011,7 @@ pub mod pallet {
 		///
 		#[pallet::weight((Weight::from_ref_time(64_781_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(2 as u64))
-		.saturating_add(T::DbWeight::get().writes(30 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(30 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_remove_network(
 			origin: OriginFor<T>,
 			netuid: u16
@@ -1032,7 +1032,7 @@ pub mod pallet {
 		/// 
 		#[pallet::weight((Weight::from_ref_time(73_574_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(12 as u64))
-		.saturating_add(T::DbWeight::get().writes(10 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(10 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_set_emission_values(
 			origin: OriginFor<T>,
 			netuids: Vec<u16>,
@@ -1061,7 +1061,7 @@ pub mod pallet {
 		///
 		#[pallet::weight((Weight::from_ref_time(56_907_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(2 as u64))
-		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_add_network_connection_requirement( origin:OriginFor<T>, netuid_a: u16, netuid_b: u16, requirement: u16 ) -> DispatchResult { 
 			Self::do_sudo_add_network_connection_requirement( origin, netuid_a, netuid_b, requirement )
 		}
@@ -1078,7 +1078,7 @@ pub mod pallet {
 		/// 		- The required network connection to remove.
 		///   
 		#[pallet::weight((Weight::from_ref_time(54_082_000 as u64)
-		.saturating_add(T::DbWeight::get().reads(3 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(3 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_remove_network_connection_requirement( origin:OriginFor<T>, netuid_a: u16, netuid_b: u16 ) -> DispatchResult { 
 			Self::do_sudo_remove_network_connection_requirement( origin, netuid_a, netuid_b )
 		}
@@ -1259,7 +1259,7 @@ pub mod pallet {
 		}
 		#[pallet::weight((Weight::from_ref_time(33_164_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(1 as u64))
-		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
