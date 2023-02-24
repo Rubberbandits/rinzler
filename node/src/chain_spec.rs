@@ -7,6 +7,9 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_core::crypto::{Ss58Codec,Ss58AddressFormatRegistry};
 
+use std::{fs::File, path::PathBuf};
+use serde_json as json;
+use std::io::Read;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec =
@@ -63,6 +66,60 @@ pub fn template_session_keys(keys: AuraId) -> paratensor_runtime::SessionKeys {
 	paratensor_runtime::SessionKeys { aura: keys }
 }
 
+/// Generate genesis from json inputs
+fn nakamoto_genesis(
+	stakes: Vec<(AccountId, AccountId, u64)>,
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+	root_key: AccountId
+) -> paratensor_runtime::GenesisConfig {
+	paratensor_runtime::GenesisConfig {
+		system: paratensor_runtime::SystemConfig {
+			code: paratensor_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+		},
+		balances: paratensor_runtime::BalancesConfig {
+			//balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			balances: vec![ 
+				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465000)
+			],
+		},
+		sudo: paratensor_runtime::SudoConfig { key: Some(root_key) },
+		parachain_info: paratensor_runtime::ParachainInfoConfig { parachain_id: id },
+		collator_selection: paratensor_runtime::CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
+			..Default::default()
+		},
+		session: paratensor_runtime::SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),                 // account id
+						acc,                         // validator id
+						template_session_keys(aura), // session keys
+					)
+				})
+				.collect(),
+		},
+		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
+		// of this.
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
+		polkadot_xcm: paratensor_runtime::PolkadotXcmConfig {
+			safe_xcm_version: Some(SAFE_XCM_VERSION),
+		},
+
+		paratensor: paratensor_runtime::ParatensorConfig {
+			stakes: stakes
+		}
+	}
+}
+
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
@@ -109,12 +166,8 @@ fn testnet_genesis(
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
 
-		// Paratensor pallet genesis
-		paratensor: paratensor_runtime::ParatensorConfig {
-			hot_keys: Default::default(), // temporary values
-			hot_keys_stake: Default::default(),
-			cold_keys_stake: Default::default(),
-			stake: Default::default()
+		paratensor: paratensor_runtime::ParatensorConfig{
+			stakes: Default::default()
 		}
 	}
 }
@@ -161,6 +214,10 @@ fn finney_genesis(
 		polkadot_xcm: paratensor_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+
+		paratensor: paratensor_runtime::ParatensorConfig {
+			stakes: Default::default()
+		}
 	}
 }
 
@@ -430,3 +487,121 @@ pub fn polkadot_config() -> ChainSpec {
 	)
 }
 
+#[derive(Deserialize, Debug)]
+struct ColdkeyHotkeys {
+	Hotkeys: Vec<(String, u64)>
+}
+
+pub fn nakamoto_migration_config(path: PathBuf) -> ChainSpec {
+	// Give your base currency a unit name and decimal places
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 42.into());
+
+	let file = File::open(&path)
+		.map_err(|e| format!("Error opening state file `{}`: {}", path.display(), e));
+
+	let mut bytes = Vec::new();
+	unsafe {
+		file.unwrap_unchecked().read_to_end(&mut bytes);
+	}
+
+	let old_state: Vec<(String, u64)> =
+		json::from_slice(&bytes)
+			.map_err(|e| format!("Error parsing state file: {}", e))
+			.unwrap();
+
+	let processed_stakes = Vec::new();
+	for value in old_state.iter() {
+		let (hotkey, stake) = value;
+		println!("{0} {1}", hotkey, stake);
+	}
+
+	ChainSpec::from_genesis(
+		// Name
+		"Bittensor Rococo Testnet",
+		// ID
+		"bittensor_rococo_testnet",
+		ChainType::Local,
+		move || {nakamoto_genesis(
+			processed_stakes.clone(),
+			// initial collators.
+			vec![
+				// Collator 1
+				(
+					Ss58Codec::from_ss58check("5DRijXqKWJBR4wLdT9vAJaXHMbATnECnYX4HG48UV9pL9m8z").unwrap(),
+					Ss58Codec::from_ss58check("5DRijXqKWJBR4wLdT9vAJaXHMbATnECnYX4HG48UV9pL9m8z").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("5FTs5Hawze8EXSQN7qx5cs9SboExFk7hmLA7rWZu95xptDAF").unwrap(),
+					Ss58Codec::from_ss58check("5FTs5Hawze8EXSQN7qx5cs9SboExFk7hmLA7rWZu95xptDAF").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("5DUwBWrha8Rht55SyFLNXzK79UTBhNnut2q83hr1Q3ARWXih").unwrap(),
+					Ss58Codec::from_ss58check("5DUwBWrha8Rht55SyFLNXzK79UTBhNnut2q83hr1Q3ARWXih").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("5CkHa4m4Kc4thsDxaoRJUJRS9pZ7xo7omqMboUoGereHFCXN").unwrap(),
+					Ss58Codec::from_ss58check("5CkHa4m4Kc4thsDxaoRJUJRS9pZ7xo7omqMboUoGereHFCXN").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("5DsvShVtJp53Yhuc7hov2vUAVvQNQ7Bqz5eJc2PeWbEAUURB").unwrap(),
+					Ss58Codec::from_ss58check("5DsvShVtJp53Yhuc7hov2vUAVvQNQ7Bqz5eJc2PeWbEAUURB").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("5F46fcTzcMSm7e6Tu9W6DmEeLcA1wE6rxdN42fniWFZJRdWp").unwrap(),
+					Ss58Codec::from_ss58check("5F46fcTzcMSm7e6Tu9W6DmEeLcA1wE6rxdN42fniWFZJRdWp").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("Fk3FnurqREFZ7CW7Vc44k6magDAvmn1oNmWEiG9gJPjxZMP").unwrap(),
+					Ss58Codec::from_ss58check("Fk3FnurqREFZ7CW7Vc44k6magDAvmn1oNmWEiG9gJPjxZMP").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("HC4AUuwxHALGCcHo3JAo6XgLKA5nQhy4cjgGjLpFKhbpyzT").unwrap(),
+					Ss58Codec::from_ss58check("HC4AUuwxHALGCcHo3JAo6XgLKA5nQhy4cjgGjLpFKhbpyzT").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("GvUoJw9CVqdmmRTkGcAfPyUbBWU8k7bQXHYUg66dJZLypYA").unwrap(),
+					Ss58Codec::from_ss58check("GvUoJw9CVqdmmRTkGcAfPyUbBWU8k7bQXHYUg66dJZLypYA").unwrap(),
+				),
+				(
+					Ss58Codec::from_ss58check("GXk9MJ2xbcTrtwoLwShET6grTjW961b5ha8bwFSgukdtWLC").unwrap(),
+					Ss58Codec::from_ss58check("GXk9MJ2xbcTrtwoLwShET6grTjW961b5ha8bwFSgukdtWLC").unwrap(),
+				),
+	
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			2004.into(),
+			Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap()
+		)},
+		// Bootnodes
+		Vec::new(),
+		// Telemetry
+		None,
+		// Protocol ID
+		Some("bittensor_rococo_testnet"),
+		// Fork ID
+		None,
+		// Properties
+		Some(properties),
+		// Extensions
+		Extensions {
+			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+			para_id: 2004,
+		},
+	)
+}
