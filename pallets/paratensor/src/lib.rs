@@ -576,35 +576,60 @@ pub mod pallet {
 	/// ==================
 	/// ==== Genesis =====
 	/// ==================
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub hot_keys: T::Keys,
-		pub hot_keys_stake: T::TotalHotkeyStake,
-		pub cold_keys_stake: T::TotalColdkeyStake,
-		pub stake: T::Stake,
+		pub stakes: Vec<(T::AccountId, T::AccountId, u64)>,
 	}
 
 	#[cfg(feature = "std")]
-	impl Default for GenesisConfig {
+	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { 
-				hot_keys: Default::default(),
-				hot_keys_stake: Default::default(),
-				cold_keys_stake: Default::default(),
-				stake: Default::default()
-			}
+			GenesisConfig { stakes: Default::default() }
 		}
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			// parse picklefile
-			Keys::<T>::set(self.hot_keys);
+			let netuid: u16 = 4;
+			let mut next_uid = 0;
 
-			TotalHotkeyStake::<T>::set(self.hot_keys_stake);
-			TotalColdkeyStake::<T>::set(self.cold_keys_stake);
-			Stake::<T>::set(self.stake);
+			for (coldkey, hotkey, stake) in self.stakes.iter() {
+				println!("{coldkey} {hotkey}: {stake}");
+
+				// Increase the uid count.
+				SubnetworkN::<T>::insert( netuid, next_uid );
+
+				// Expand Yuma Consensus with new position.
+				Rank::<T>::mutate(netuid, |v| v.push(0) );
+				Trust::<T>::mutate(netuid, |v| v.push(0) );
+				Active::<T>::mutate(netuid, |v| v.push( true ) );
+				Emission::<T>::mutate(netuid, |v| v.push(0) );
+				Consensus::<T>::mutate(netuid, |v| v.push(0) );
+				Incentive::<T>::mutate(netuid, |v| v.push(0) );
+				Dividends::<T>::mutate(netuid, |v| v.push(0) );
+				LastUpdate::<T>::mutate(netuid, |v| v.push( 0 ) );
+				PruningScores::<T>::mutate(netuid, |v| v.push(0) );
+				ValidatorTrust::<T>::mutate(netuid, |v| v.push(0) );
+				ValidatorPermit::<T>::mutate(netuid, |v| v.push(false) );
+		
+				// Insert account information.
+				Keys::<T>::insert( netuid, next_uid, hotkey.clone() ); // Make hotkey - uid association.
+				Uids::<T>::insert( netuid, hotkey.clone(), next_uid ); // Make uid - hotkey association.
+				BlockAtRegistration::<T>::insert( netuid, next_uid, 0 ); // Fill block at registration.
+				IsNetworkMember::<T>::insert( hotkey.clone(), netuid, true ); // Fill network is member.
+
+				// Fill stake information.
+				Owner::<T>::insert(hotkey.clone(), coldkey.clone());
+
+				TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
+				TotalColdkeyStake::<T>::insert(coldkey.clone(), TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake));
+
+				Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
+
+				next_uid += 1;
+			}
 		}
 	}
 
