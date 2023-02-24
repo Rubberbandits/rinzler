@@ -581,7 +581,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Paratensor
-		Paratensor: pallet_paratensor::{Pallet, Call, Storage, Event<T>}  = 41,
+		Paratensor: pallet_paratensor::{Pallet, Call, Storage, Event<T>, Config<T>}  = 41,
 	}
 );
 
