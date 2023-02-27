@@ -7,7 +7,6 @@ use sp_io::hashing::sha2_256;
 use sp_io::hashing::keccak_256;
 use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
-use frame_support::storage::IterableStorageDoubleMap;
 use substrate_fixed::types::I32F32;
 
 const LOG_TARGET: &'static str = "runtime::paratensor::registration";
@@ -240,18 +239,6 @@ impl<T: Config> Pallet<T> {
         // continue to the normal difficulty check.s
         return true;
     }
-
-    /// Returns true if the items contain duplicates hotkeys.
-    ///
-    fn has_duplicate_keys(items: &Vec<T::AccountId>) -> bool {
-        let mut parsed: Vec<T::AccountId> = Vec::new();
-        for item in items {
-            if parsed.contains(&item) { return true; }
-            parsed.push(item.clone());
-        }
-        return false;
-    }
-
 
     pub fn vec_to_hash( vec_hash: Vec<u8> ) -> H256 {
         let de_ref_hash = &vec_hash; // b: &Vec<u8>
