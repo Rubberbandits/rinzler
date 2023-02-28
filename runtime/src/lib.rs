@@ -176,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bittensor-parachain"),
 	impl_name: create_runtime_str!("bittensor-parachain"),
 	authoring_version: 1,
-	spec_version: 6,
+	spec_version: 8,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -477,7 +477,7 @@ parameter_types! {
 	pub const ParatensorInitialRho: u16 = 30;
     pub const ParatensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
     pub const ParatensorInitialWeightCuts: u16 = 3;
-    pub const ParatensorInitialMaxAllowedUids: u16 = 4096;
+    pub const ParatensorInitialMaxAllowedUids: u16 = 512;
     pub const ParatensorInitialIssuance: u64 = 0;
     pub const ParatensorInitialMinAllowedWeights: u16 = 0;
     pub const ParatensorInitialEmissionValue: u16 = 0;
