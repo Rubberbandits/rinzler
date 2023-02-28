@@ -279,6 +279,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+
+    pub fn get_validator_epoch_length( netuid: u16 )-> u16 {ValidatorEpochLen::<T>::get( netuid ) }
+    pub fn set_validator_epoch_length( netuid: u16, validator_epoch_length: u16 ) { ValidatorEpochLen::<T>::insert( netuid, validator_epoch_length ); }
+    pub fn do_sudo_set_validator_epoch_length( origin:T::RuntimeOrigin, netuid: u16, validator_epoch_length: u16 ) -> DispatchResult {
+        ensure_root( origin )?; 
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        ValidatorEpochLen::<T>::insert( netuid, validator_epoch_length );
+        log::info!("ValidatorEpochLengthSet( netuid: {:?} validator_epoch_length: {:?} ) ", netuid, validator_epoch_length );
+        Self::deposit_event(Event::ValidatorEpochLengthSet(netuid, validator_epoch_length));
+        Ok(())
+    }
+
     pub fn get_validator_batch_size( netuid: u16 ) -> u16 { ValidatorBatchSize::<T>::get( netuid ) }
     pub fn set_validator_batch_size( netuid: u16, validator_batch_size: u16 ) { ValidatorBatchSize::<T>::insert( netuid, validator_batch_size ); }
     pub fn do_sudo_set_validator_batch_size( origin:T::RuntimeOrigin, netuid: u16, validator_batch_size: u16 ) -> DispatchResult {
@@ -306,7 +318,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_max_allowed_uids( origin:T::RuntimeOrigin, netuid: u16, max_allowed_uids: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!(Self::get_max_allowed_uids(netuid)<= max_allowed_uids, Error::<T>::MaxAllowedUIdsNotAllowed);
+        ensure!(Self::get_max_allowed_uids(netuid)< max_allowed_uids, Error::<T>::MaxAllowedUIdsNotAllowed);
         Self::set_max_allowed_uids( netuid, max_allowed_uids );
         log::info!("MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ", netuid, max_allowed_uids);
         Self::deposit_event( Event::MaxAllowedUidsSet( netuid, max_allowed_uids) );
