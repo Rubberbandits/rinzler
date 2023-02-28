@@ -226,9 +226,9 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the total amount of stake held by the coldkey (delegative or otherwise)
     ///
-    // pub fn get_total_stake_for_coldkey( coldkey: &T::AccountId ) -> u64 { 
-    //     return TotalColdkeyStake::<T>::get( coldkey ); 
-    // }
+     pub fn get_total_stake_for_coldkey( coldkey: &T::AccountId ) -> u64 { 
+         return TotalColdkeyStake::<T>::get( coldkey ); 
+     }
 
     /// Returns the stake under the cold - hot pairing in the staking table.
     ///
@@ -289,7 +289,7 @@ impl<T: Config> Pallet<T> {
     /// This function should be called rather than set_stake under account.
     /// 
     pub fn increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
-        TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
+        TotalColdkeyStake::<T>::insert(coldkey, TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
