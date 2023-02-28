@@ -533,6 +533,7 @@ pub mod pallet {
 		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length i set for a subnet.
 		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
 		ValidatorExcludeQuantileSet( u16, u16 ), // --- Event created when the validator exclude quantile has been set for a subnet.
+		ValidatorEpochLengthSet( u16, u16 ), // --- Event created when the validator epoch length has been set for a subnet.
 		ValidatorLogitsDivergenceSet( u16, u64 ), /// --- Event created when the validator logits divergence value has been set.
 		ValidatorPruneLenSet( u16, u64 ), /// --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
@@ -1259,6 +1260,12 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u64 ) -> DispatchResult {
 			Self::do_sudo_set_validator_logits_divergence( origin, netuid, validator_logits_divergence )
+		}
+		#[pallet::weight((Weight::from_ref_time(31_791_000 as u64)
+		.saturating_add(T::DbWeight::get().reads(1 as u64))
+		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
+		pub fn sudo_set_validator_epoch_len( origin:OriginFor<T>, netuid: u16,validator_epoch_length: u16 ) -> DispatchResult {
+			Self::do_sudo_set_validator_epoch_length( origin, netuid, validator_epoch_length )
 		}
 		#[pallet::weight((Weight::from_ref_time(37_614_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(1 as u64))
