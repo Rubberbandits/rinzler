@@ -7,13 +7,40 @@ use frame_system::{
 	ensure_signed
 };
 
-use frame_support::{dispatch, ensure, traits::{
-	Currency, 
-	ExistenceRequirement,
-	tokens::{
-		WithdrawReasons
+use frame_support::{
+	dispatch,
+	dispatch::{
+		DispatchInfo,
+		PostDispatchInfo
+	}, ensure, 
+	traits::{
+		Currency, 
+		ExistenceRequirement,
+		tokens::{
+			WithdrawReasons
+		},
+		IsSubType,
+		}
+	};
+
+
+use sp_std::marker::PhantomData;
+use codec::{Decode, Encode};
+use sp_runtime::{
+	traits::{
+		Dispatchable,
+		DispatchInfoOf,
+		SignedExtension,
+		PostDispatchInfoOf
+	},
+	transaction_validity::{
+		TransactionValidity,
+		TransactionValidityError
 	}
-}};
+};
+use scale_info::TypeInfo;
+use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+
 
 /// ============================
 ///	==== Benchmark Imports =====
@@ -697,7 +724,7 @@ pub mod pallet {
 		///
 		#[pallet::weight((Weight::from_ref_time(61_408_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(3 as u64))
-		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::Yes))]
 		pub fn become_delegate(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId
@@ -741,7 +768,7 @@ pub mod pallet {
 		///
 		#[pallet::weight((Weight::from_ref_time(98_973_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(7 as u64))
-		.saturating_add(T::DbWeight::get().writes(5 as u64)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(5 as u64)), DispatchClass::Normal, Pays::Yes))]
 		pub fn add_stake(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId, 
@@ -1328,5 +1355,196 @@ pub mod pallet {
 			Ok(())
 		} 
 	}	
+
+	// ---- Paratensor helper functions.
+	impl<T: Config> Pallet<T> {
+		// --- Returns the transaction priority for setting weights.
+		pub fn get_priority_set_weights( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+			if Uids::<T>::contains_key( netuid, &hotkey ) {
+				let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
+				let current_block_number: u64 = Self::get_current_block_as_u64();
+				return current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
+			}
+			return 0;
+		}
+	}
+	
+
+}
+
+/************************************************************
+	CallType definition
+************************************************************/
+#[derive(Debug, PartialEq)]
+pub enum CallType {
+    SetWeights,
+    AddStake,
+    RemoveStake,
+	AddDelegate,
+    Register,
+    Serve,
+	Other,
+}
+impl Default for CallType {
+    fn default() -> Self {
+        CallType::Other
+    }
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+pub struct ParatensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> ParatensorSignedExtension<T> where
+	T::RuntimeCall: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+
+	pub fn get_priority_vanilla() -> u64 {
+		// Return high priority so that every extrinsic except set_weights function will 
+		// have a higher priority than the set_weights call
+		return u64::max_value();
+	}
+
+	pub fn get_priority_set_weights( who: &T::AccountId, netuid: u16 ) -> u64 {
+		// Return the non vanilla priority for a set weights call.
+
+		return Pallet::<T>::get_priority_set_weights( who, netuid );
+	}
+}
+
+impl <T:Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for ParatensorSignedExtension<T> {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		write!(f, "SubtensorSignedExtension")
+	}
+}
+
+impl<T: Config + Send + Sync + TypeInfo> SignedExtension for ParatensorSignedExtension<T>
+    where
+        T::RuntimeCall: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
+        <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+	const IDENTIFIER: &'static str = "ParatensorSignedExtension";
+
+	type AccountId = T::AccountId;
+	type Call = T::RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = (CallType, u64, Self::AccountId);
+	
+	fn additional_signed( &self ) -> Result<Self::AdditionalSigned, TransactionValidityError> { 
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> TransactionValidity {
+		match call.is_sub_type() {
+			Some(Call::set_weights{netuid, ..}) => {
+				let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                Ok(ValidTransaction {
+                    priority: priority,
+                    longevity: 1,
+                    ..Default::default()
+                })
+            }
+			Some(Call::add_stake{..}) => {
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
+            Some(Call::remove_stake{..}) => {
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
+            Some(Call::register{..}) => {
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
+			_ => {
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
+		}
+	}
+
+	// NOTE: Add later when we put in a pre and post dispatch step.
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        _info: &DispatchInfoOf<Self::Call>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+
+        match call.is_sub_type() {
+            Some(Call::add_stake{..}) => {
+				let transaction_fee = 0;
+                Ok((CallType::AddStake, transaction_fee, who.clone()))
+            }
+            Some(Call::remove_stake{..}) => {
+				let transaction_fee = 0;
+                Ok((CallType::RemoveStake, transaction_fee, who.clone()))
+            }
+			Some(Call::set_weights{..}) => {
+				let transaction_fee = 0;
+                Ok((CallType::SetWeights, transaction_fee, who.clone())) 
+            }
+			Some(Call::register{..}) => {
+                let transaction_fee = 0;
+                Ok((CallType::Register, transaction_fee, who.clone()))
+            }
+            Some(Call::serve_axon{..}) => {
+                let transaction_fee = 0;
+                Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            _ => {
+				let transaction_fee = 0;
+                Ok((CallType::Other, transaction_fee, who.clone()))
+            }
+        }
+    }
+
+	fn post_dispatch(
+        maybe_pre: Option<Self::Pre>,
+        info: &DispatchInfoOf<Self::Call>,
+        post_info: &PostDispatchInfoOf<Self::Call>,
+        len: usize,
+        result: &dispatch::DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+
+		if let Some((call_type, transaction_fee, who)) = maybe_pre {
+			match call_type {
+				CallType::SetWeights => {
+					log::debug!("Not Implemented!");
+				}
+				CallType::AddStake => {
+					log::debug!("Not Implemented! Need to add potential transaction fees here.");
+				}
+				CallType::RemoveStake => {
+					log::debug!("Not Implemented! Need to add potential transaction fees here.");
+				}
+				CallType::Register => {
+					log::debug!("Not Implemented!");
+				}
+				_ => {
+					log::debug!("Not Implemented!");
+				}
+			}
+		} 
+		Ok(())
+    }
 
 }
