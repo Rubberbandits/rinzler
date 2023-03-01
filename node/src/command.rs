@@ -23,18 +23,12 @@ use crate::{
 	service::{new_partial, ParachainNativeExecutor},
 };
 
-fn generate_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-	Ok(match id {
-		path => Box::new(chain_spec::nakamoto_migration_config(path.into())),
-	})
-}
-
 fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 	Ok(match id {
 		"dev" => Box::new(chain_spec::rococo_testnet_config()),
 		"kusama" => Box::new(chain_spec::kusama_testnet_config()),
 		"main" | "finney" => Box::new(chain_spec::polkadot_config()), 
-		"nakamoto" => Box::new(chain_spec::nakamoto_migration_config(std::path::PathBuf::from("nakamoto_gen.json"))),
+		"nakamoto" => Box::new(chain_spec::nakamoto_migration_config(std::path::PathBuf::from("nakamoto_gen.json"))?),
 		path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 	})
 }
