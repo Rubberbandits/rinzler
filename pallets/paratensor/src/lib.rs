@@ -580,12 +580,16 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub stakes: Vec<(T::AccountId, T::AccountId, u64)>,
+		pub balances: Vec<(T::AccountId, u64)>
 	}
 
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { stakes: Default::default() }
+			Self { 
+				stakes: Default::default(), 
+				balances: Default::default() 
+			}
 		}
 	}
 
