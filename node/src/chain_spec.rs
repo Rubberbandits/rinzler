@@ -68,8 +68,8 @@ pub fn template_session_keys(keys: AuraId) -> paratensor_runtime::SessionKeys {
 
 /// Generate genesis from json inputs
 fn nakamoto_genesis(
-	stakes: Vec<(paratensor_runtime::AccountId, paratensor_runtime::AccountId, u64)>,
-	balances: Vec<(paratensor_runtime::AccountId, u64)>,
+	stakes: Vec<(paratensor_runtime::AccountId, Vec<(paratensor_runtime::AccountId, u64)>)>,
+	balances: Vec<(paratensor_runtime::AccountId, u128)>,
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
@@ -82,10 +82,7 @@ fn nakamoto_genesis(
 				.to_vec(),
 		},
 		balances: paratensor_runtime::BalancesConfig {
-			//balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-			balances: vec![ 
-				(Ss58Codec::from_ss58check("5EqeLybpo51F5tdn4JrDEG9sWacgZ4ZgHaHUGU86sNvPQjE9").unwrap(),6058535716465000)
-			],
+			balances: balances.iter().cloned().map(|k| k).collect(),
 		},
 		sudo: paratensor_runtime::SudoConfig { key: Some(root_key) },
 		parachain_info: paratensor_runtime::ParachainInfoConfig { parachain_id: id },
@@ -116,8 +113,7 @@ fn nakamoto_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig {
-			stakes: stakes,
-			balances: balances
+			stakes: stakes
 		}
 	}
 }
@@ -169,8 +165,7 @@ fn testnet_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig{
-			stakes: Default::default(),
-			balances: Default::default()
+			stakes: Default::default()
 		}
 	}
 }
@@ -219,8 +214,7 @@ fn finney_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig {
-			stakes: Default::default(),
-			balances: Default::default()
+			stakes: Default::default()
 		}
 	}
 }
@@ -494,7 +488,7 @@ pub fn polkadot_config() -> ChainSpec {
 #[derive(Deserialize, Debug)]
 struct ColdkeyHotkeys {
 	stakes: std::collections::HashMap<String, std::collections::HashMap<String, u64>>,
-	balances: std::collections::HashMap<String, u64>
+	balances: std::collections::HashMap<String, u128>
 }
 
 pub fn nakamoto_migration_config(path: PathBuf) -> Result<ChainSpec, String> {
@@ -519,20 +513,24 @@ pub fn nakamoto_migration_config(path: PathBuf) -> Result<ChainSpec, String> {
 	let old_state: ColdkeyHotkeys =
 		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
 
-	let mut processed_stakes: Vec<(sp_runtime::AccountId32, sp_runtime::AccountId32, u64)> = Vec::new();
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, u64)>)> = Vec::new();
 	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-		for (hotkey_str, amount) in hotkeys.iter() {
-			let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
-			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
-			let coldkey_account = sp_runtime::AccountId32::from(coldkey);
+		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+
+		for (hotkey_str, amount) in hotkeys.iter() {
+			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
 			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
-			processed_stakes.push((coldkey_account, hotkey_account, *amount));
+			processed_hotkeys.push((hotkey_account, *amount));
 		}
+
+		processed_stakes.push((coldkey_account, processed_hotkeys));
 	}
 
-	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+	let mut processed_balances: Vec<(sp_runtime::AccountId32, u128)> = Vec::new();
 	for (key_str, amount) in old_state.balances.iter() {
 		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
 		let key_account = sp_runtime::AccountId32::from(key);
