@@ -156,7 +156,7 @@ impl<T: Config> Pallet<T> {
     /// This function should be called rather than set_stake under account.
     /// 
     pub fn block_step_increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
-        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
+        TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_add( increment ) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
@@ -167,7 +167,7 @@ impl<T: Config> Pallet<T> {
     /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
     ///
     pub fn block_step_decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
-        // TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
+        TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );

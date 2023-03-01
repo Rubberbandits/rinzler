@@ -103,6 +103,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	pallet_paratensor::ParatensorSignedExtension<Runtime>
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -176,7 +177,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bittensor-parachain"),
 	impl_name: create_runtime_str!("bittensor-parachain"),
 	authoring_version: 1,
-	spec_version: 1,
+	spec_version: 10,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -201,9 +202,9 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 // Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000;
-pub const MILLIUNIT: Balance = 1_000_000;
-pub const MICROUNIT: Balance = 1_000;
+pub const UNIT: Balance = 1_000_000;
+pub const MILLIUNIT: Balance = 1_000;
+pub const MICROUNIT: Balance = 1;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
@@ -354,7 +355,7 @@ impl pallet_balances::Config for Runtime {
 
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
-	pub const TransactionByteFee: Balance = 10 * MICROUNIT;
+	pub const TransactionByteFee: Balance = 200000 * MICROUNIT;
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 
@@ -477,7 +478,7 @@ parameter_types! {
 	pub const ParatensorInitialRho: u16 = 30;
     pub const ParatensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
     pub const ParatensorInitialWeightCuts: u16 = 3;
-    pub const ParatensorInitialMaxAllowedUids: u16 = 4096;
+    pub const ParatensorInitialMaxAllowedUids: u16 = 512;
     pub const ParatensorInitialIssuance: u64 = 0;
     pub const ParatensorInitialMinAllowedWeights: u16 = 0;
     pub const ParatensorInitialEmissionValue: u16 = 0;
