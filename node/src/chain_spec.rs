@@ -68,7 +68,8 @@ pub fn template_session_keys(keys: AuraId) -> paratensor_runtime::SessionKeys {
 
 /// Generate genesis from json inputs
 fn nakamoto_genesis(
-	stakes: Vec<(AccountId, AccountId, u64)>,
+	stakes: Vec<(paratensor_runtime::AccountId, paratensor_runtime::AccountId, u64)>,
+	balances: Vec<(paratensor_runtime::AccountId, u64)>,
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
@@ -115,7 +116,8 @@ fn nakamoto_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig {
-			stakes: stakes
+			stakes: stakes,
+			balances: balances
 		}
 	}
 }
@@ -167,7 +169,8 @@ fn testnet_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig{
-			stakes: Default::default()
+			stakes: Default::default(),
+			balances: Default::default()
 		}
 	}
 }
@@ -216,7 +219,8 @@ fn finney_genesis(
 		},
 
 		paratensor: paratensor_runtime::ParatensorConfig {
-			stakes: Default::default()
+			stakes: Default::default(),
+			balances: Default::default()
 		}
 	}
 }
@@ -489,36 +493,54 @@ pub fn polkadot_config() -> ChainSpec {
 
 #[derive(Deserialize, Debug)]
 struct ColdkeyHotkeys {
-	Hotkeys: Vec<(String, u64)>
+	stakes: std::collections::HashMap<String, std::collections::HashMap<String, u64>>,
+	balances: std::collections::HashMap<String, u64>
 }
 
-pub fn nakamoto_migration_config(path: PathBuf) -> ChainSpec {
+pub fn nakamoto_migration_config(path: PathBuf) -> Result<ChainSpec, String> {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "TAO".into());
 	properties.insert("tokenDecimals".into(), 9.into());
 	properties.insert("ss58Format".into(), 42.into());
 
+	// We mmap the file into memory first, as this is *a lot* faster than using
+	// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
 	let file = File::open(&path)
-		.map_err(|e| format!("Error opening state file `{}`: {}", path.display(), e));
+		.map_err(|e| format!("Error opening genesis file `{}`: {}", path.display(), e))?;
 
-	let mut bytes = Vec::new();
-	unsafe {
-		file.unwrap_unchecked().read_to_end(&mut bytes);
+	// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
+	//         underneath us while it is mapped; in practice it's unlikely to be a problem
+	let bytes = unsafe {
+		memmap2::Mmap::map(&file)
+			.map_err(|e| format!("Error mmaping genesis file `{}`: {}", path.display(), e))?
+	};
+
+	let old_state: ColdkeyHotkeys =
+		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, sp_runtime::AccountId32, u64)> = Vec::new();
+	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
+		for (hotkey_str, amount) in hotkeys.iter() {
+			let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+
+			let coldkey_account = sp_runtime::AccountId32::from(coldkey);
+			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
+
+			processed_stakes.push((coldkey_account, hotkey_account, *amount));
+		}
 	}
 
-	let old_state: Vec<(String, u64)> =
-		json::from_slice(&bytes)
-			.map_err(|e| format!("Error parsing state file: {}", e))
-			.unwrap();
-
-	let processed_stakes = Vec::new();
-	for value in old_state.iter() {
-		let (hotkey, stake) = value;
-		println!("{0} {1}", hotkey, stake);
+	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+	for (key_str, amount) in old_state.balances.iter() {
+		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+		let key_account = sp_runtime::AccountId32::from(key);
+			
+		processed_balances.push((key_account, *amount))
 	}
 
-	ChainSpec::from_genesis(
+	Ok(ChainSpec::from_genesis(
 		// Name
 		"Bittensor Rococo Testnet",
 		// ID
@@ -526,6 +548,7 @@ pub fn nakamoto_migration_config(path: PathBuf) -> ChainSpec {
 		ChainType::Local,
 		move || {nakamoto_genesis(
 			processed_stakes.clone(),
+			processed_balances.clone(),
 			// initial collators.
 			vec![
 				// Collator 1
@@ -603,5 +626,5 @@ pub fn nakamoto_migration_config(path: PathBuf) -> ChainSpec {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: 2004,
 		},
-	)
+	))
 }
