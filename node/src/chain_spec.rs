@@ -534,6 +534,10 @@ pub fn nakamoto_migration_config(path: PathBuf) -> Result<ChainSpec, String> {
 	for (key_str, amount) in old_state.balances.iter() {
 		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
 		let key_account = sp_runtime::AccountId32::from(key);
+
+		if *amount < 1_000_000 {
+			continue
+		}
 			
 		processed_balances.push((key_account, *amount))
 	}
